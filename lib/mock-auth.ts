@@ -1,0 +1,1 @@
+export const DEMO_TELEGRAM_ID = '999999999'
