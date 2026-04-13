@@ -1,55 +1,59 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { DEMO_TELEGRAM_ID } from '@/lib/mock-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getRequestUser } from '@/lib/request-user'
 
 export async function GET() {
-  const { data: user } = await supabaseAdmin
-    .from('users')
-    .select('*')
-    .eq('telegram_id', DEMO_TELEGRAM_ID)
-    .single()
+  const user = await getRequestUser()
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
-  const { data: tasks } = await supabaseAdmin
+  const { count: tasksCreatedCount, error: createdError } = await supabaseAdmin
+    .from('tasks')
+    .select('*', { count: 'exact', head: true })
+    .eq('creator_id', user.id)
+
+  if (createdError) {
+    return NextResponse.json({ error: createdError.message }, { status: 500 })
+  }
+
+  const { count: tasksAssignedCount, error: assignedError } = await supabaseAdmin
+    .from('tasks')
+    .select('*', { count: 'exact', head: true })
+    .eq('assignee_id', user.id)
+
+  if (assignedError) {
+    return NextResponse.json({ error: assignedError.message }, { status: 500 })
+  }
+
+  const { count: tasksCompletedCount, error: completedError } = await supabaseAdmin
+    .from('tasks')
+    .select('*', { count: 'exact', head: true })
+    .eq('assignee_id', user.id)
+    .not('completed_at', 'is', null)
+
+  if (completedError) {
+    return NextResponse.json({ error: completedError.message }, { status: 500 })
+  }
+
+  const { data: recentTasks, error: recentError } = await supabaseAdmin
     .from('tasks')
     .select('*')
     .or(`creator_id.eq.${user.id},assignee_id.eq.${user.id}`)
+    .order('created_at', { ascending: false })
+    .limit(5)
 
-  const { data: points } = await supabaseAdmin
-    .from('project_points_ledger')
-    .select('points_amount')
-    .eq('user_id', user.id)
-
-  const totalProjectPoints =
-    points?.reduce((sum, row) => sum + Number(row.points_amount || 0), 0) || 0
-
-  const burningNow =
-    tasks
-      ?.filter((task) => task.status !== 'completed')
-      .sort((a, b) => {
-        const order = { overdue: 0, warning: 1, normal: 2 }
-        return (
-          order[a.urgency_state as keyof typeof order] -
-          order[b.urgency_state as keyof typeof order]
-        )
-      })
-      .slice(0, 10) || []
-
-  const ongoingTasks = tasks?.filter((t) => t.status !== 'completed').length || 0
+  if (recentError) {
+    return NextResponse.json({ error: recentError.message }, { status: 500 })
+  }
 
   return NextResponse.json({
-    user,
     stats: {
-      xp: user.xp_total,
-      completedTasks: user.completed_tasks_count,
-      completedLines: user.completed_lines_count,
-      earnedMoney: user.earned_money_total,
-      totalProjectPoints,
-      ongoingTasks,
+      tasks_created: tasksCreatedCount ?? 0,
+      tasks_assigned: tasksAssignedCount ?? 0,
+      tasks_completed: tasksCompletedCount ?? 0,
     },
-    burningNow,
+    recent_tasks: recentTasks ?? [],
   })
 }
