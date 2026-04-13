@@ -46,7 +46,10 @@ export default function HomePage() {
   const [project, setProject] = useState<Project | null>(null)
   const [line, setLine] = useState<ProcessLine | null>(null)
 
-  const [authStatus, setAuthStatus] = useState<'connecting' | 'ready' | 'failed'>('connecting')
+  const [authStatus, setAuthStatus] = useState<
+    'connecting' | 'ready' | 'failed'
+  >('connecting')
+  const [authError, setAuthError] = useState('')
   const [loadingTasks, setLoadingTasks] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -103,6 +106,7 @@ export default function HomePage() {
 
       if (!meRes.ok || !meJson.user) {
         console.error('Failed to load current user:', meJson.error)
+        setAuthError(meJson.error || 'Failed to load current user')
         setAuthStatus('failed')
         return
       }
@@ -119,6 +123,7 @@ export default function HomePage() {
 
       if (!contextRes.ok) {
         console.error('Failed to load context:', contextJson.error)
+        setAuthError(contextJson.error || 'Failed to load context')
         setAuthStatus('failed')
         return
       }
@@ -130,6 +135,9 @@ export default function HomePage() {
       await loadTasks(userId)
     } catch (error) {
       console.error('Failed to load context:', error)
+      setAuthError(
+        error instanceof Error ? error.message : 'Failed to load context'
+      )
       setAuthStatus('failed')
     }
   }
@@ -146,6 +154,7 @@ export default function HomePage() {
 
         if (!meRes.ok || !meJson.user) {
           console.error('Failed to bootstrap local user:', meJson.error)
+          setAuthError(meJson.error || 'Failed to bootstrap local user')
           setAuthStatus('failed')
           return
         }
@@ -153,6 +162,11 @@ export default function HomePage() {
         await loadContext(meJson.user.id)
       } catch (error) {
         console.error('Failed to bootstrap local context:', error)
+        setAuthError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to bootstrap local context'
+        )
         setAuthStatus('failed')
       }
     }
@@ -291,9 +305,11 @@ export default function HomePage() {
       {isTelegramWebApp && (
         <TelegramAuthBootstrap
           onAuthed={(userId) => {
+            setAuthError('')
             loadContext(userId)
           }}
-          onFailed={() => {
+          onFailed={(reason) => {
+            setAuthError(reason || 'Unknown Telegram auth error')
             setAuthStatus('failed')
           }}
         />
@@ -310,27 +326,32 @@ export default function HomePage() {
         {authStatus === 'connecting' && (
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
             <p className="text-white/70">
-              {isTelegramWebApp ? 'Connecting Telegram user...' : 'Connecting local user...'}
+              {isTelegramWebApp
+                ? 'Connecting Telegram user...'
+                : 'Connecting local user...'}
             </p>
           </section>
         )}
 
         {authStatus === 'failed' && (
           <section className="rounded-3xl border border-red-500/20 bg-red-500/10 p-5">
-            <p className="text-white/85">Could not connect user context.</p>
+            <p className="text-white/85">
+              Could not connect to Telegram.{' '}
+              {authError || 'Please reopen the app from CloudsFlowBot.'}
+            </p>
           </section>
         )}
 
         {authStatus === 'ready' && currentUser && (
           <>
-            <section className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:col-span-1">
+            <section className="grid gap-4 xl:grid-cols-3">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
                 <h2 className="mb-4 text-xl font-semibold">Current user</h2>
                 {userCard}
               </div>
 
               {project && (
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:col-span-1">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
                   <h2 className="mb-4 text-xl font-semibold">Current project</h2>
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <p className="text-lg font-semibold">{project.title}</p>
@@ -340,8 +361,10 @@ export default function HomePage() {
               )}
 
               {line && (
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:col-span-1">
-                  <h2 className="mb-4 text-xl font-semibold">Current process line</h2>
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+                  <h2 className="mb-4 text-xl font-semibold">
+                    Current process line
+                  </h2>
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-lg font-semibold">{line.title}</p>
@@ -405,7 +428,9 @@ export default function HomePage() {
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-4 flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-semibold">Tasks in current line</h2>
+                <h2 className="text-2xl font-semibold">
+                  Tasks in current line
+                </h2>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/60">
                   {tasksInCurrentLine.length} tasks
                 </span>
