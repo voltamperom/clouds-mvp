@@ -16,14 +16,20 @@ export default function TelegramAuthBootstrap({
       try {
         const tg = (window as any).Telegram?.WebApp
 
+        console.log('Telegram WebApp object:', tg)
+
         if (!tg) {
+          console.error('Telegram WebApp is missing')
           onFailed()
           return
         }
 
         const rawInitData = tg.initData
 
+        console.log('Telegram initData:', rawInitData)
+
         if (!rawInitData) {
+          console.error('Telegram initData is empty')
           onFailed()
           return
         }
@@ -36,9 +42,12 @@ export default function TelegramAuthBootstrap({
 
         const json = await res.json()
 
+        console.log('telegram-auth response:', json)
+
         if (res.ok && json.user?.id) {
           onAuthed(json.user.id)
         } else {
+          console.error('telegram-auth failed:', json)
           onFailed()
         }
       } catch (e) {
