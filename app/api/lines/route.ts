@@ -1,101 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { DEMO_TELEGRAM_ID } from '@/lib/mock-auth'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getRequestUser } from '@/lib/request-user'
 
 export async function GET() {
-  const { data: user } = await supabaseAdmin
-    .from('users')
-    .select('id')
-    .eq('telegram_id', DEMO_TELEGRAM_ID)
-    .single()
+  const user = await getRequestUser()
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
-  const { data: ownedLines, error: ownedError } = await supabaseAdmin
+  const { data: lines, error } = await supabaseAdmin
     .from('process_lines')
     .select('*')
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
 
-  const { data: invitedLinks, error: invitedError } = await supabaseAdmin
-    .from('line_participants')
-    .select('line_id, role, visibility_mode, status')
-    .eq('user_id', user.id)
-
-  if (ownedError || invitedError) {
-    return NextResponse.json(
-      { error: ownedError?.message || invitedError?.message },
-      { status: 500 }
-    )
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const invitedLineIds = invitedLinks?.map((x) => x.line_id) || []
-
-  let invitedLines: any[] = []
-  if (invitedLineIds.length > 0) {
-    const { data } = await supabaseAdmin
-      .from('process_lines')
-      .select('*')
-      .in('id', invitedLineIds)
-      .order('created_at', { ascending: false })
-
-    invitedLines = data || []
-  }
-
-  return NextResponse.json({
-    myLines: ownedLines || [],
-    invitedLines,
-    invitedMeta: invitedLinks || [],
-  })
+  return NextResponse.json({ lines: lines ?? [] })
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-
-  const { title, description, projectTitle, projectDescription } = body
-
-  const { data: user } = await supabaseAdmin
-    .from('users')
-    .select('id')
-    .eq('telegram_id', DEMO_TELEGRAM_ID)
-    .single()
+  const user = await getRequestUser()
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
-  const { data: project, error: projectError } = await supabaseAdmin
-    .from('projects')
-    .insert({
-      owner_id: user.id,
-      title: projectTitle || title,
-      description: projectDescription || null,
-    })
-    .select('*')
-    .single()
+  const body = await req.json()
 
-  if (projectError) {
-    return NextResponse.json({ error: projectError.message }, { status: 500 })
+  const { project_id, title, status } = body
+
+  if (!project_id || typeof project_id !== 'string') {
+    return NextResponse.json(
+      { error: 'project_id is required' },
+      { status: 400 }
+    )
   }
 
-  const { data: line, error: lineError } = await supabaseAdmin
+  if (!title || typeof title !== 'string' || !title.trim()) {
+    return NextResponse.json(
+      { error: 'title is required' },
+      { status: 400 }
+    )
+  }
+
+  const { data: line, error } = await supabaseAdmin
     .from('process_lines')
     .insert({
-      project_id: project.id,
+      project_id,
       owner_id: user.id,
-      title,
-      description: description || null,
-      status: 'draft',
-      progress_percent: 0,
+      title: title.trim(),
+      status: status || 'draft',
     })
     .select('*')
     .single()
 
-  if (lineError) {
-    return NextResponse.json({ error: lineError.message }, { status: 500 })
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ line, project })
+  return NextResponse.json({ line })
 }
