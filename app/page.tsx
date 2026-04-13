@@ -62,24 +62,19 @@ export default function HomePage() {
     typeof window !== 'undefined' &&
     Boolean((window as any).Telegram?.WebApp?.initData)
 
-  const authHeaders = currentUserId
-    ? {
-        'x-user-id': currentUserId,
-      }
+  const authHeaders: Record<string, string> = currentUserId
+    ? { 'x-user-id': currentUserId }
     : {}
 
   const loadTasks = async (userId?: string) => {
     setLoadingTasks(true)
 
     try {
-      const res = await fetch('/api/tasks', {
-        headers: userId
-          ? {
-              'x-user-id': userId,
-            }
-          : authHeaders,
-      })
+      const headers: Record<string, string> = userId
+        ? { 'x-user-id': userId }
+        : authHeaders
 
+      const res = await fetch('/api/tasks', { headers })
       const json = await res.json()
 
       if (!res.ok) {
@@ -97,11 +92,9 @@ export default function HomePage() {
 
   const loadContext = async (userId: string) => {
     try {
-      const meRes = await fetch('/api/me', {
-        headers: {
-          'x-user-id': userId,
-        },
-      })
+      const headers: Record<string, string> = { 'x-user-id': userId }
+
+      const meRes = await fetch('/api/me', { headers })
       const meJson = await meRes.json()
 
       if (!meRes.ok || !meJson.user) {
@@ -114,11 +107,7 @@ export default function HomePage() {
       setCurrentUserId(meJson.user.id)
       setCurrentUser(meJson.user)
 
-      const contextRes = await fetch('/api/context', {
-        headers: {
-          'x-user-id': userId,
-        },
-      })
+      const contextRes = await fetch('/api/context', { headers })
       const contextJson = await contextRes.json()
 
       if (!contextRes.ok) {
