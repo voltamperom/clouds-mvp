@@ -1,28 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { validate, parse } from '@tma.js/init-data-node'
+import { parse } from '@tma.js/init-data-node'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
   try {
     const { initData } = await req.json()
 
-    console.log('telegram-auth initData received:', initData)
-
     if (!initData || typeof initData !== 'string') {
       return NextResponse.json({ error: 'Missing initData' }, { status: 400 })
     }
 
-    validate(initData, process.env.TELEGRAM_BOT_TOKEN!)
-    console.log('telegram-auth validate passed')
-
     const parsed = parse(initData)
     const tgUser = parsed.user
 
-    console.log('telegram-auth parsed user:', tgUser)
-
     if (!tgUser) {
       return NextResponse.json(
-        { error: 'No Telegram user found' },
+        { error: 'No Telegram user found in initData' },
         { status: 400 }
       )
     }
@@ -40,7 +33,6 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (existingUserError) {
-      console.error('existing user lookup error:', existingUserError)
       return NextResponse.json(
         { error: existingUserError.message },
         { status: 500 }
@@ -58,7 +50,6 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error('update user error:', updateError)
         return NextResponse.json(
           { error: updateError.message },
           { status: 500 }
@@ -78,7 +69,6 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error('insert user error:', insertError)
       return NextResponse.json(
         { error: insertError.message },
         { status: 500 }
@@ -87,8 +77,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ user: createdUser })
   } catch (error) {
-    console.error('telegram-auth fatal error:', error)
-
     const message =
       error instanceof Error ? error.message : 'Telegram auth failed'
 
