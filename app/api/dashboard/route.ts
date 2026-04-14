@@ -48,12 +48,50 @@ export async function GET() {
     return NextResponse.json({ error: recentError.message }, { status: 500 })
   }
 
+  const creatorIds = Array.from(
+    new Set((recentTasks ?? []).map((task) => task.creator_id).filter(Boolean))
+  )
+
+  const assigneeIds = Array.from(
+    new Set((recentTasks ?? []).map((task) => task.assignee_id).filter(Boolean))
+  )
+
+  const userIds = Array.from(new Set([...creatorIds, ...assigneeIds]))
+
+  let usersMap = new Map<string, { id: string; display_name: string }>()
+
+  if (userIds.length > 0) {
+    const { data: users, error: usersError } = await supabaseAdmin
+      .from('users')
+      .select('id, display_name')
+      .in('id', userIds)
+
+    if (usersError) {
+      return NextResponse.json({ error: usersError.message }, { status: 500 })
+    }
+
+    usersMap = new Map(
+      (users ?? []).map((user) => [
+        user.id,
+        { id: user.id, display_name: user.display_name },
+      ])
+    )
+  }
+
+  const enrichedRecentTasks = (recentTasks ?? []).map((task) => ({
+    ...task,
+    creator_name: usersMap.get(task.creator_id)?.display_name ?? 'Unknown user',
+    assignee_name: task.assignee_id
+      ? usersMap.get(task.assignee_id)?.display_name ?? 'Unknown user'
+      : null,
+  }))
+
   return NextResponse.json({
     stats: {
       tasks_created: tasksCreatedCount ?? 0,
       tasks_assigned: tasksAssignedCount ?? 0,
       tasks_completed: tasksCompletedCount ?? 0,
     },
-    recent_tasks: recentTasks ?? [],
+    recent_tasks: enrichedRecentTasks,
   })
 }
