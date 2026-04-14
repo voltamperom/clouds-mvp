@@ -62,14 +62,18 @@ export default function HomePage() {
   useEffect(() => {
     const detectMode = () => {
       const tg = (window as any).Telegram?.WebApp
-      if (tg?.initData) {
+      const hasTelegramObject = Boolean(tg)
+      const hasInitData = Boolean(tg?.initData)
+
+      if (hasTelegramObject || hasInitData) {
         setAuthMode('telegram')
-      } else {
-        setAuthMode('browser')
+        return
       }
+
+      setAuthMode('browser')
     }
 
-    const timer = setTimeout(detectMode, 300)
+    const timer = setTimeout(detectMode, 500)
     return () => clearTimeout(timer)
   }, [])
 
@@ -77,7 +81,11 @@ export default function HomePage() {
     setLoadingTasks(true)
 
     try {
-      const headers: Record<string, string> = userId ? { 'x-user-id': userId } : currentUserId ? { 'x-user-id': currentUserId } : {}
+      const headers: Record<string, string> = userId
+        ? { 'x-user-id': userId }
+        : currentUserId
+        ? { 'x-user-id': currentUserId }
+        : {}
 
       const res = await fetch('/api/tasks', { headers })
       const json = await res.json()
@@ -126,7 +134,9 @@ export default function HomePage() {
 
       await loadTasks(userId)
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Failed to load context')
+      setAuthError(
+        error instanceof Error ? error.message : 'Failed to load context'
+      )
       setAuthStatus('failed')
     }
   }
@@ -148,7 +158,11 @@ export default function HomePage() {
 
         await loadContext(meJson.user.id)
       } catch (error) {
-        setAuthError(error instanceof Error ? error.message : 'Failed to bootstrap local context')
+        setAuthError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to bootstrap local context'
+        )
         setAuthStatus('failed')
       }
     }
@@ -187,7 +201,9 @@ export default function HomePage() {
           title: title.trim(),
           description: description.trim() || null,
           reward_cash: rewardCash ? Number(rewardCash) : 0,
-          reward_project_points: rewardProjectPoints ? Number(rewardProjectPoints) : 0,
+          reward_project_points: rewardProjectPoints
+            ? Number(rewardProjectPoints)
+            : 0,
         }),
       })
 
@@ -219,6 +235,7 @@ export default function HomePage() {
     })
 
     const json = await res.json()
+
     if (!res.ok) {
       alert(json.error || 'Failed to take task')
       return
@@ -237,6 +254,7 @@ export default function HomePage() {
     })
 
     const json = await res.json()
+
     if (!res.ok) {
       alert(json.error || 'Failed to complete task')
       return
@@ -285,7 +303,7 @@ export default function HomePage() {
           </p>
         </header>
 
-        {(authStatus === 'connecting' || authMode === 'checking') && (
+        {(authMode === 'checking' || authStatus === 'connecting') && (
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
             <p className="text-white/70">Connecting...</p>
           </section>
@@ -294,7 +312,8 @@ export default function HomePage() {
         {authStatus === 'failed' && (
           <section className="rounded-3xl border border-red-500/20 bg-red-500/10 p-5">
             <p className="text-white/85">
-              Could not connect to Telegram. {authError || 'Please reopen the app from CloudsFlowBot.'}
+              Could not connect to Telegram.{' '}
+              {authError || 'Please reopen the app from CloudsFlowBot.'}
             </p>
           </section>
         )}
@@ -336,13 +355,39 @@ export default function HomePage() {
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
               <h2 className="mb-4 text-2xl font-semibold">Create task</h2>
               <div className="grid gap-3">
-                <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35" />
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" className="min-h-28 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35" />
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Task title"
+                  className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
+                />
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Description"
+                  className="min-h-28 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
+                />
                 <div className="grid gap-3 md:grid-cols-2">
-                  <input value={rewardCash} onChange={(e) => setRewardCash(e.target.value)} placeholder="Cash reward" type="number" className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35" />
-                  <input value={rewardProjectPoints} onChange={(e) => setRewardProjectPoints(e.target.value)} placeholder="Project points reward" type="number" className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35" />
+                  <input
+                    value={rewardCash}
+                    onChange={(e) => setRewardCash(e.target.value)}
+                    placeholder="Cash reward"
+                    type="number"
+                    className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
+                  />
+                  <input
+                    value={rewardProjectPoints}
+                    onChange={(e) => setRewardProjectPoints(e.target.value)}
+                    placeholder="Project points reward"
+                    type="number"
+                    className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
+                  />
                 </div>
-                <button onClick={handleCreateTask} disabled={submitting} className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">
+                <button
+                  onClick={handleCreateTask}
+                  disabled={submitting}
+                  className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   {submitting ? 'Creating...' : 'Create task'}
                 </button>
               </div>
@@ -366,58 +411,82 @@ export default function HomePage() {
                     const isOpen = !task.assignee_id
                     const isCompleted = Boolean(task.completed_at)
                     const isInProgress = Boolean(task.assignee_id) && !task.completed_at
-
-                    const statusLabel = isCompleted ? 'Done' : isInProgress ? 'In progress' : 'Open'
+                    const statusLabel = isCompleted
+                      ? 'Done'
+                      : isInProgress
+                      ? 'In progress'
+                      : 'Open'
 
                     return (
-                      <div key={task.id} className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                      <div
+                        key={task.id}
+                        className="rounded-3xl border border-white/10 bg-white/5 p-5"
+                      >
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                           <div className="min-w-0 flex-1 space-y-3">
                             <div className="space-y-2">
                               <div className="flex flex-wrap items-center gap-3">
-                                <h3 className="text-2xl font-semibold leading-tight">{task.title}</h3>
+                                <h3 className="text-2xl font-semibold leading-tight">
+                                  {task.title}
+                                </h3>
                                 <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-sm text-white/85">
                                   {statusLabel}
                                 </span>
                               </div>
 
                               {task.description && (
-                                <p className="max-w-3xl text-white/70">{task.description}</p>
+                                <p className="max-w-3xl text-white/70">
+                                  {task.description}
+                                </p>
                               )}
                             </div>
 
                             <div className="grid gap-3 text-sm text-white/65 md:grid-cols-2">
                               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                                 <p className="text-white/45">Created by</p>
-                                <p className="mt-1 font-medium text-white">{task.creator_name}</p>
+                                <p className="mt-1 font-medium text-white">
+                                  {task.creator_name}
+                                </p>
                               </div>
 
                               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                                 <p className="text-white/45">Assigned to</p>
-                                <p className="mt-1 font-medium text-white">{task.assignee_name || '—'}</p>
+                                <p className="mt-1 font-medium text-white">
+                                  {task.assignee_name || '—'}
+                                </p>
                               </div>
 
                               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                                 <p className="text-white/45">Cash reward</p>
-                                <p className="mt-1 font-medium text-white">{task.reward_cash ?? 0}</p>
+                                <p className="mt-1 font-medium text-white">
+                                  {task.reward_cash ?? 0}
+                                </p>
                               </div>
 
                               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                                 <p className="text-white/45">Project points</p>
-                                <p className="mt-1 font-medium text-white">{task.reward_project_points ?? 0}</p>
+                                <p className="mt-1 font-medium text-white">
+                                  {task.reward_project_points ?? 0}
+                                </p>
                               </div>
                             </div>
                           </div>
 
                           <div className="flex shrink-0 gap-3">
                             {isOpen && (
-                              <button onClick={() => handleTakeTask(task.id)} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 font-medium transition hover:bg-white/15">
+                              <button
+                                onClick={() => handleTakeTask(task.id)}
+                                className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 font-medium transition hover:bg-white/15"
+                              >
                                 Take task
                               </button>
                             )}
 
                             {isInProgress && (
-                              <button onClick={() => handleCompleteTask(task.id)} className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90">
+                              <button
+                                onClick={() => handleCompleteTask(task.id)}
+                                className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90"
+                              >
                                 Complete task
                               </button>
                             )}

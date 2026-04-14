@@ -12,43 +12,66 @@ export default function TelegramAuthBootstrap({
   onFailed,
 }: Props) {
   useEffect(() => {
-    const run = async () => {
-      try {
+    let cancelled = false
+
+    const waitForTelegram = async () => {
+      const startedAt = Date.now()
+      const timeoutMs = 8000
+
+      while (!cancelled && Date.now() - startedAt < timeoutMs) {
         const tg = (window as any).Telegram?.WebApp
+        const initData = tg?.initData
 
-        if (!tg) {
-          onFailed('Telegram WebApp is missing')
-          return
+        if (tg && initData) {
+          try {
+            const res = await fetch('/api/telegram-auth', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ initData }),
+            })
+
+            const json = await res.json()
+
+            if (res.ok && json.user?.id) {
+              onAuthed(json.user.id)
+              return
+            }
+
+            onFailed(json.error || `telegram-auth failed (${res.status})`)
+            return
+          } catch (error) {
+            onFailed(
+              error instanceof Error
+                ? error.message
+                : 'Telegram bootstrap request failed'
+            )
+            return
+          }
         }
 
-        const rawInitData = tg.initData
-
-        if (!rawInitData) {
-          onFailed('Telegram initData is empty')
-          return
-        }
-
-        const res = await fetch('/api/telegram-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData: rawInitData }),
-        })
-
-        const json = await res.json()
-
-        if (res.ok && json.user?.id) {
-          onAuthed(json.user.id)
-        } else {
-          onFailed(json.error || 'telegram-auth failed')
-        }
-      } catch (e) {
-        const message =
-          e instanceof Error ? e.message : 'Telegram bootstrap error'
-        onFailed(message)
+        await new Promise((resolve) => setTimeout(resolve, 300))
       }
+
+      const tg = (window as any).Telegram?.WebApp
+
+      if (!tg) {
+        onFailed('Telegram WebApp is missing')
+        return
+      }
+
+      if (!tg.initData) {
+        onFailed('Telegram initData is empty')
+        return
+      }
+
+      onFailed('Telegram bootstrap timeout')
     }
 
-    run()
+    waitForTelegram()
+
+    return () => {
+      cancelled = true
+    }
   }, [onAuthed, onFailed])
 
   return null
