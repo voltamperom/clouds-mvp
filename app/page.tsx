@@ -310,10 +310,10 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-6xl space-y-8">
         <header className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">Clouds MVP 88888</h1>
-          <p className="text-base text-white/65">
-            Create flows, assign tasks, complete processes///
-          </p>
+          <h1 className="text-4xl font-bold tracking-tight">Clouds MVP</h1>
+<p className="text-base text-white/65">
+  Create flows, assign tasks, complete processes.
+</p>
           <p className="text-base text-white/65">TEST BUILD V999</p>
         </header>
 
