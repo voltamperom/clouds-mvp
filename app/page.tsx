@@ -310,13 +310,11 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-6xl space-y-8">
         <header className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">Clouds MVP</h1>
-<p className="text-base text-white/65">
-  Create flows, assign tasks, complete processes.
-</p>
-          <p className="text-base text-white/65">TEST BUILD V999</p>
-        </header>
-
+  <h1 className="text-4xl font-bold tracking-tight">Clouds MVP</h1>
+  <p className="text-base text-white/65">
+    Create flows, assign tasks, complete processes.
+  </p>
+</header>
         {(authMode === 'checking' || authStatus === 'connecting') && (
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
             <p className="text-white/70">Connecting...</p>
