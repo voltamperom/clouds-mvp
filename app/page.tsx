@@ -13,6 +13,8 @@ type Task = {
   assignee_name: string | null
   title: string
   description: string | null
+  deadline_at?: string | null
+  expected_result?: string | null
   reward_cash: number
   reward_project_points: number
   completed_at?: string | null
@@ -71,6 +73,8 @@ export default function HomePage() {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [deadlineAt, setDeadlineAt] = useState('')
+  const [expectedResult, setExpectedResult] = useState('')
   const [rewardCash, setRewardCash] = useState('')
   const [rewardProjectPoints, setRewardProjectPoints] = useState('')
 
@@ -268,6 +272,8 @@ export default function HomePage() {
           line_id: line.id,
           title: title.trim(),
           description: description.trim() || null,
+          deadline_at: deadlineAt || null,
+          expected_result: expectedResult.trim() || null,
           reward_cash: rewardCash ? Number(rewardCash) : 0,
           reward_project_points: rewardProjectPoints
             ? Number(rewardProjectPoints)
@@ -284,6 +290,8 @@ export default function HomePage() {
 
       setTitle('')
       setDescription('')
+      setDeadlineAt('')
+      setExpectedResult('')
       setRewardCash('')
       setRewardProjectPoints('')
 
@@ -506,12 +514,28 @@ export default function HomePage() {
                   placeholder="Task title"
                   className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
                 />
+
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Description"
                   className="min-h-28 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
                 />
+
+                <input
+                  value={deadlineAt}
+                  onChange={(e) => setDeadlineAt(e.target.value)}
+                  type="datetime-local"
+                  className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none"
+                />
+
+                <textarea
+                  value={expectedResult}
+                  onChange={(e) => setExpectedResult(e.target.value)}
+                  placeholder="Expected result"
+                  className="min-h-24 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
+                />
+
                 <div className="grid gap-3 md:grid-cols-2">
                   <input
                     value={rewardCash}
@@ -528,6 +552,7 @@ export default function HomePage() {
                     className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
                   />
                 </div>
+
                 <button
                   onClick={handleCreateTask}
                   disabled={submitting}
@@ -584,6 +609,13 @@ export default function HomePage() {
                                   {task.description}
                                 </p>
                               )}
+
+                              {task.expected_result && (
+                                <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
+                                  <p className="text-white/45">Expected result</p>
+                                  <p className="mt-1">{task.expected_result}</p>
+                                </div>
+                              )}
                             </div>
 
                             <div className="grid gap-3 text-sm text-white/65 md:grid-cols-2">
@@ -612,6 +644,15 @@ export default function HomePage() {
                                 <p className="text-white/45">Project points</p>
                                 <p className="mt-1 font-medium text-white">
                                   {task.reward_project_points ?? 0}
+                                </p>
+                              </div>
+
+                              <div className="rounded-2xl border border-white/10 bg-black/20 p-3 md:col-span-2">
+                                <p className="text-white/45">Deadline</p>
+                                <p className="mt-1 font-medium text-white">
+                                  {task.deadline_at
+                                    ? new Date(task.deadline_at).toLocaleString()
+                                    : '—'}
                                 </p>
                               </div>
                             </div>
