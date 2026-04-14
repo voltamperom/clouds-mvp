@@ -39,6 +39,8 @@ type ProcessLine = {
   status?: string
 }
 
+type AuthMode = 'checking' | 'telegram' | 'browser'
+
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
@@ -46,9 +48,8 @@ export default function HomePage() {
   const [project, setProject] = useState<Project | null>(null)
   const [line, setLine] = useState<ProcessLine | null>(null)
 
-  const [authStatus, setAuthStatus] = useState<
-    'connecting' | 'ready' | 'failed'
-  >('connecting')
+  const [authMode, setAuthMode] = useState<AuthMode>('checking')
+  const [authStatus, setAuthStatus] = useState<'connecting' | 'ready' | 'failed'>('connecting')
   const [authError, setAuthError] = useState('')
   const [loadingTasks, setLoadingTasks] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -58,21 +59,25 @@ export default function HomePage() {
   const [rewardCash, setRewardCash] = useState('')
   const [rewardProjectPoints, setRewardProjectPoints] = useState('')
 
-  const isTelegramWebApp =
-    typeof window !== 'undefined' &&
-    Boolean((window as any).Telegram?.WebApp?.initData)
+  useEffect(() => {
+    const detectMode = () => {
+      const tg = (window as any).Telegram?.WebApp
+      if (tg?.initData) {
+        setAuthMode('telegram')
+      } else {
+        setAuthMode('browser')
+      }
+    }
 
-  const authHeaders: Record<string, string> = currentUserId
-    ? { 'x-user-id': currentUserId }
-    : {}
+    const timer = setTimeout(detectMode, 300)
+    return () => clearTimeout(timer)
+  }, [])
 
   const loadTasks = async (userId?: string) => {
     setLoadingTasks(true)
 
     try {
-      const headers: Record<string, string> = userId
-        ? { 'x-user-id': userId }
-        : authHeaders
+      const headers: Record<string, string> = userId ? { 'x-user-id': userId } : currentUserId ? { 'x-user-id': currentUserId } : {}
 
       const res = await fetch('/api/tasks', { headers })
       const json = await res.json()
@@ -98,7 +103,6 @@ export default function HomePage() {
       const meJson = await meRes.json()
 
       if (!meRes.ok || !meJson.user) {
-        console.error('Failed to load current user:', meJson.error)
         setAuthError(meJson.error || 'Failed to load current user')
         setAuthStatus('failed')
         return
@@ -111,7 +115,6 @@ export default function HomePage() {
       const contextJson = await contextRes.json()
 
       if (!contextRes.ok) {
-        console.error('Failed to load context:', contextJson.error)
         setAuthError(contextJson.error || 'Failed to load context')
         setAuthStatus('failed')
         return
@@ -123,18 +126,14 @@ export default function HomePage() {
 
       await loadTasks(userId)
     } catch (error) {
-      console.error('Failed to load context:', error)
-      setAuthError(
-        error instanceof Error ? error.message : 'Failed to load context'
-      )
+      setAuthError(error instanceof Error ? error.message : 'Failed to load context')
       setAuthStatus('failed')
     }
   }
 
   useEffect(() => {
-    if (isTelegramWebApp) {
-      return
-    }
+    if (authMode !== 'browser') return
+    if (process.env.NODE_ENV === 'production') return
 
     const bootstrapLocalUser = async () => {
       try {
@@ -142,7 +141,6 @@ export default function HomePage() {
         const meJson = await meRes.json()
 
         if (!meRes.ok || !meJson.user) {
-          console.error('Failed to bootstrap local user:', meJson.error)
           setAuthError(meJson.error || 'Failed to bootstrap local user')
           setAuthStatus('failed')
           return
@@ -150,18 +148,13 @@ export default function HomePage() {
 
         await loadContext(meJson.user.id)
       } catch (error) {
-        console.error('Failed to bootstrap local context:', error)
-        setAuthError(
-          error instanceof Error
-            ? error.message
-            : 'Failed to bootstrap local context'
-        )
+        setAuthError(error instanceof Error ? error.message : 'Failed to bootstrap local context')
         setAuthStatus('failed')
       }
     }
 
     bootstrapLocalUser()
-  }, [isTelegramWebApp])
+  }, [authMode])
 
   const handleCreateTask = async () => {
     if (!currentUserId || !currentUser) {
@@ -194,16 +187,13 @@ export default function HomePage() {
           title: title.trim(),
           description: description.trim() || null,
           reward_cash: rewardCash ? Number(rewardCash) : 0,
-          reward_project_points: rewardProjectPoints
-            ? Number(rewardProjectPoints)
-            : 0,
+          reward_project_points: rewardProjectPoints ? Number(rewardProjectPoints) : 0,
         }),
       })
 
       const json = await res.json()
 
       if (!res.ok) {
-        console.error('Failed to create task:', json.error)
         alert(json.error || 'Failed to create task')
         return
       }
@@ -214,62 +204,45 @@ export default function HomePage() {
       setRewardProjectPoints('')
 
       await loadTasks(currentUserId)
-    } catch (error) {
-      console.error('Failed to create task:', error)
-      alert('Failed to create task')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleTakeTask = async (taskId: string) => {
-    try {
-      const res = await fetch(`/api/tasks/${taskId}/take`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': currentUserId,
-        },
-      })
+    const res = await fetch(`/api/tasks/${taskId}/take`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUserId,
+      },
+    })
 
-      const json = await res.json()
-
-      if (!res.ok) {
-        console.error('Failed to take task:', json.error)
-        alert(json.error || 'Failed to take task')
-        return
-      }
-
-      await loadTasks(currentUserId)
-    } catch (error) {
-      console.error('Failed to take task:', error)
-      alert('Failed to take task')
+    const json = await res.json()
+    if (!res.ok) {
+      alert(json.error || 'Failed to take task')
+      return
     }
+
+    await loadTasks(currentUserId)
   }
 
   const handleCompleteTask = async (taskId: string) => {
-    try {
-      const res = await fetch(`/api/tasks/${taskId}/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': currentUserId,
-        },
-      })
+    const res = await fetch(`/api/tasks/${taskId}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUserId,
+      },
+    })
 
-      const json = await res.json()
-
-      if (!res.ok) {
-        console.error('Failed to complete task:', json.error)
-        alert(json.error || 'Failed to complete task')
-        return
-      }
-
-      await loadTasks(currentUserId)
-    } catch (error) {
-      console.error('Failed to complete task:', error)
-      alert('Failed to complete task')
+    const json = await res.json()
+    if (!res.ok) {
+      alert(json.error || 'Failed to complete task')
+      return
     }
+
+    await loadTasks(currentUserId)
   }
 
   const userCard = useMemo(() => {
@@ -279,11 +252,11 @@ export default function HomePage() {
       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
         <p className="text-lg font-semibold">{currentUser.display_name}</p>
         <p className="mt-1 text-sm text-white/50">
-          {isTelegramWebApp ? 'Connected via Telegram' : 'Connected locally'}
+          {authMode === 'telegram' ? 'Connected via Telegram' : 'Connected locally'}
         </p>
       </div>
     )
-  }, [currentUser, isTelegramWebApp])
+  }, [currentUser, authMode])
 
   const tasksInCurrentLine = tasks.filter((task) =>
     line ? task.line_id === line.id : true
@@ -291,7 +264,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-black px-4 py-6 text-white md:px-6">
-      {isTelegramWebApp && (
+      {authMode === 'telegram' && (
         <TelegramAuthBootstrap
           onAuthed={(userId) => {
             setAuthError('')
@@ -312,21 +285,16 @@ export default function HomePage() {
           </p>
         </header>
 
-        {authStatus === 'connecting' && (
+        {(authStatus === 'connecting' || authMode === 'checking') && (
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-            <p className="text-white/70">
-              {isTelegramWebApp
-                ? 'Connecting Telegram user...'
-                : 'Connecting local user...'}
-            </p>
+            <p className="text-white/70">Connecting...</p>
           </section>
         )}
 
         {authStatus === 'failed' && (
           <section className="rounded-3xl border border-red-500/20 bg-red-500/10 p-5">
             <p className="text-white/85">
-              Could not connect to Telegram.{' '}
-              {authError || 'Please reopen the app from CloudsFlowBot.'}
+              Could not connect to Telegram. {authError || 'Please reopen the app from CloudsFlowBot.'}
             </p>
           </section>
         )}
@@ -351,9 +319,7 @@ export default function HomePage() {
 
               {line && (
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                  <h2 className="mb-4 text-xl font-semibold">
-                    Current process line
-                  </h2>
+                  <h2 className="mb-4 text-xl font-semibold">Current process line</h2>
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-lg font-semibold">{line.title}</p>
@@ -361,9 +327,7 @@ export default function HomePage() {
                         {line.status || '—'}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-white/50">
-                      Active working lane
-                    </p>
+                    <p className="mt-2 text-sm text-white/50">Active working lane</p>
                   </div>
                 </div>
               )}
@@ -371,45 +335,14 @@ export default function HomePage() {
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
               <h2 className="mb-4 text-2xl font-semibold">Create task</h2>
-
               <div className="grid gap-3">
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Task title"
-                  className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
-                />
-
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Description"
-                  className="min-h-28 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
-                />
-
+                <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35" />
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" className="min-h-28 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35" />
                 <div className="grid gap-3 md:grid-cols-2">
-                  <input
-                    value={rewardCash}
-                    onChange={(e) => setRewardCash(e.target.value)}
-                    placeholder="Cash reward"
-                    type="number"
-                    className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
-                  />
-
-                  <input
-                    value={rewardProjectPoints}
-                    onChange={(e) => setRewardProjectPoints(e.target.value)}
-                    placeholder="Project points reward"
-                    type="number"
-                    className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35"
-                  />
+                  <input value={rewardCash} onChange={(e) => setRewardCash(e.target.value)} placeholder="Cash reward" type="number" className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35" />
+                  <input value={rewardProjectPoints} onChange={(e) => setRewardProjectPoints(e.target.value)} placeholder="Project points reward" type="number" className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 outline-none placeholder:text-white/35" />
                 </div>
-
-                <button
-                  onClick={handleCreateTask}
-                  disabled={submitting}
-                  className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
+                <button onClick={handleCreateTask} disabled={submitting} className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">
                   {submitting ? 'Creating...' : 'Create task'}
                 </button>
               </div>
@@ -417,9 +350,7 @@ export default function HomePage() {
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-4 flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-semibold">
-                  Tasks in current line
-                </h2>
+                <h2 className="text-2xl font-semibold">Tasks in current line</h2>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/60">
                   {tasksInCurrentLine.length} tasks
                 </span>
@@ -434,85 +365,59 @@ export default function HomePage() {
                   {tasksInCurrentLine.map((task) => {
                     const isOpen = !task.assignee_id
                     const isCompleted = Boolean(task.completed_at)
-                    const isInProgress =
-                      Boolean(task.assignee_id) && !task.completed_at
+                    const isInProgress = Boolean(task.assignee_id) && !task.completed_at
 
-                    const statusLabel = isCompleted
-                      ? 'Done'
-                      : isInProgress
-                      ? 'In progress'
-                      : 'Open'
+                    const statusLabel = isCompleted ? 'Done' : isInProgress ? 'In progress' : 'Open'
 
                     return (
-                      <div
-                        key={task.id}
-                        className="rounded-3xl border border-white/10 bg-white/5 p-5"
-                      >
+                      <div key={task.id} className="rounded-3xl border border-white/10 bg-white/5 p-5">
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                           <div className="min-w-0 flex-1 space-y-3">
                             <div className="space-y-2">
                               <div className="flex flex-wrap items-center gap-3">
-                                <h3 className="text-2xl font-semibold leading-tight">
-                                  {task.title}
-                                </h3>
+                                <h3 className="text-2xl font-semibold leading-tight">{task.title}</h3>
                                 <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-sm text-white/85">
                                   {statusLabel}
                                 </span>
                               </div>
 
                               {task.description && (
-                                <p className="max-w-3xl text-white/70">
-                                  {task.description}
-                                </p>
+                                <p className="max-w-3xl text-white/70">{task.description}</p>
                               )}
                             </div>
 
                             <div className="grid gap-3 text-sm text-white/65 md:grid-cols-2">
                               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                                 <p className="text-white/45">Created by</p>
-                                <p className="mt-1 font-medium text-white">
-                                  {task.creator_name}
-                                </p>
+                                <p className="mt-1 font-medium text-white">{task.creator_name}</p>
                               </div>
 
                               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                                 <p className="text-white/45">Assigned to</p>
-                                <p className="mt-1 font-medium text-white">
-                                  {task.assignee_name || '—'}
-                                </p>
+                                <p className="mt-1 font-medium text-white">{task.assignee_name || '—'}</p>
                               </div>
 
                               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                                 <p className="text-white/45">Cash reward</p>
-                                <p className="mt-1 font-medium text-white">
-                                  {task.reward_cash ?? 0}
-                                </p>
+                                <p className="mt-1 font-medium text-white">{task.reward_cash ?? 0}</p>
                               </div>
 
                               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                                 <p className="text-white/45">Project points</p>
-                                <p className="mt-1 font-medium text-white">
-                                  {task.reward_project_points ?? 0}
-                                </p>
+                                <p className="mt-1 font-medium text-white">{task.reward_project_points ?? 0}</p>
                               </div>
                             </div>
                           </div>
 
                           <div className="flex shrink-0 gap-3">
                             {isOpen && (
-                              <button
-                                onClick={() => handleTakeTask(task.id)}
-                                className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 font-medium transition hover:bg-white/15"
-                              >
+                              <button onClick={() => handleTakeTask(task.id)} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 font-medium transition hover:bg-white/15">
                                 Take task
                               </button>
                             )}
 
                             {isInProgress && (
-                              <button
-                                onClick={() => handleCompleteTask(task.id)}
-                                className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90"
-                              >
+                              <button onClick={() => handleCompleteTask(task.id)} className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90">
                                 Complete task
                               </button>
                             )}
