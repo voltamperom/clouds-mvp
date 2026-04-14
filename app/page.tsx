@@ -13,8 +13,10 @@ type Task = {
   assignee_name: string | null
   title: string
   description: string | null
+  status: string
   deadline_at?: string | null
   expected_result?: string | null
+  result_destination_link?: string | null
   reward_cash: number
   reward_project_points: number
   completed_at?: string | null
@@ -320,8 +322,32 @@ export default function HomePage() {
     await refreshAll()
   }
 
-  const handleCompleteTask = async (taskId: string) => {
-    const res = await fetch(`/api/tasks/${taskId}/complete`, {
+  const handleSubmitForReview = async (taskId: string) => {
+    const resultLink = window.prompt('Result link or proof URL:', '') || ''
+
+    const res = await fetch(`/api/tasks/${taskId}/submit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUserId,
+      },
+      body: JSON.stringify({
+        result_destination_link: resultLink.trim() || null,
+      }),
+    })
+
+    const json = await res.json()
+
+    if (!res.ok) {
+      alert(json.error || 'Failed to submit task for review')
+      return
+    }
+
+    await refreshAll()
+  }
+
+  const handleApproveTask = async (taskId: string) => {
+    const res = await fetch(`/api/tasks/${taskId}/approve`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -332,7 +358,26 @@ export default function HomePage() {
     const json = await res.json()
 
     if (!res.ok) {
-      alert(json.error || 'Failed to complete task')
+      alert(json.error || 'Failed to approve task')
+      return
+    }
+
+    await refreshAll()
+  }
+
+  const handleSendBackTask = async (taskId: string) => {
+    const res = await fetch(`/api/tasks/${taskId}/revise`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUserId,
+      },
+    })
+
+    const json = await res.json()
+
+    if (!res.ok) {
+      alert(json.error || 'Failed to send task back')
       return
     }
 
@@ -465,15 +510,16 @@ export default function HomePage() {
                     ) : (
                       <div className="grid gap-3">
                         {recentTasks.map((task) => {
-                          const isCompleted = Boolean(task.completed_at)
-                          const isInProgress =
-                            Boolean(task.assignee_id) && !task.completed_at
-
-                          const statusLabel = isCompleted
-                            ? 'Done'
-                            : isInProgress
-                            ? 'In progress'
-                            : 'Open'
+                          const statusLabel =
+                            task.status === 'done'
+                              ? 'Done'
+                              : task.status === 'in_review'
+                              ? 'In review'
+                              : task.status === 'needs_revision'
+                              ? 'Needs revision'
+                              : task.status === 'in_progress'
+                              ? 'In progress'
+                              : 'Open'
 
                           return (
                             <div
@@ -578,14 +624,23 @@ export default function HomePage() {
               ) : (
                 <div className="grid gap-4">
                   {tasksInCurrentLine.map((task) => {
-                    const isOpen = !task.assignee_id
-                    const isCompleted = Boolean(task.completed_at)
-                    const isInProgress = Boolean(task.assignee_id) && !task.completed_at
-                    const statusLabel = isCompleted
-                      ? 'Done'
-                      : isInProgress
-                      ? 'In progress'
-                      : 'Open'
+                    const statusLabel =
+                      task.status === 'done'
+                        ? 'Done'
+                        : task.status === 'in_review'
+                        ? 'In review'
+                        : task.status === 'needs_revision'
+                        ? 'Needs revision'
+                        : task.status === 'in_progress'
+                        ? 'In progress'
+                        : 'Open'
+
+                    const isOpen = task.status === 'open'
+                    const isInProgress = task.status === 'in_progress'
+                    const isInReview = task.status === 'in_review'
+                    const isNeedsRevision = task.status === 'needs_revision'
+                    const isCreator = task.creator_id === currentUserId
+                    const isAssignee = task.assignee_id === currentUserId
 
                     return (
                       <div
@@ -614,6 +669,15 @@ export default function HomePage() {
                                 <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
                                   <p className="text-white/45">Expected result</p>
                                   <p className="mt-1">{task.expected_result}</p>
+                                </div>
+                              )}
+
+                              {task.result_destination_link && (
+                                <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
+                                  <p className="text-white/45">Result link</p>
+                                  <p className="mt-1 break-all">
+                                    {task.result_destination_link}
+                                  </p>
                                 </div>
                               )}
                             </div>
@@ -658,7 +722,7 @@ export default function HomePage() {
                             </div>
                           </div>
 
-                          <div className="flex shrink-0 gap-3">
+                          <div className="flex shrink-0 flex-wrap gap-3">
                             {isOpen && (
                               <button
                                 onClick={() => handleTakeTask(task.id)}
@@ -668,13 +732,31 @@ export default function HomePage() {
                               </button>
                             )}
 
-                            {isInProgress && (
+                            {(isInProgress || isNeedsRevision) && isAssignee && (
                               <button
-                                onClick={() => handleCompleteTask(task.id)}
+                                onClick={() => handleSubmitForReview(task.id)}
                                 className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90"
                               >
-                                Complete task
+                                Submit for review
                               </button>
+                            )}
+
+                            {isInReview && isCreator && (
+                              <>
+                                <button
+                                  onClick={() => handleApproveTask(task.id)}
+                                  className="rounded-2xl bg-white px-4 py-3 font-medium text-black transition hover:opacity-90"
+                                >
+                                  Approve
+                                </button>
+
+                                <button
+                                  onClick={() => handleSendBackTask(task.id)}
+                                  className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 font-medium transition hover:bg-white/15"
+                                >
+                                  Send back
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
