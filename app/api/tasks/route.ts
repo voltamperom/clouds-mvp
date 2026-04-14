@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { DEMO_TELEGRAM_ID } from '@/lib/mock-auth'
-
-async function getDemoUser() {
-  const { data: user, error } = await supabaseAdmin
-    .from('users')
-    .select('id')
-    .eq('telegram_id', DEMO_TELEGRAM_ID)
-    .single()
-
-  if (error || !user) {
-    return null
-  }
-
-  return user
-}
+import { getRequestUser } from '@/lib/request-user'
 
 export async function GET() {
-  const user = await getDemoUser()
+  const user = await getRequestUser()
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -75,7 +61,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getDemoUser()
+  const user = await getRequestUser()
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -98,10 +84,7 @@ export async function POST(req: NextRequest) {
   } = body
 
   if (!title || typeof title !== 'string' || !title.trim()) {
-    return NextResponse.json(
-      { error: 'Title is required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Title is required' }, { status: 400 })
   }
 
   const { data: task, error } = await supabaseAdmin
@@ -130,7 +113,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     task: {
       ...task,
-      creator_name: 'Demo User',
+      creator_name: user.display_name,
       assignee_name: null,
     },
   })
