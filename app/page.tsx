@@ -39,10 +39,24 @@ type ProcessLine = {
   status?: string
 }
 
+type DashboardStats = {
+  tasks_created: number
+  tasks_assigned: number
+  tasks_completed: number
+}
+
+type DashboardResponse = {
+  stats: DashboardStats
+  recent_tasks: Task[]
+}
+
 type AuthMode = 'checking' | 'telegram' | 'browser'
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null)
+  const [recentTasks, setRecentTasks] = useState<Task[]>([])
+
   const [currentUserId, setCurrentUserId] = useState('')
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [project, setProject] = useState<Project | null>(null)
@@ -52,6 +66,7 @@ export default function HomePage() {
   const [authStatus, setAuthStatus] = useState<'connecting' | 'ready' | 'failed'>('connecting')
   const [authError, setAuthError] = useState('')
   const [loadingTasks, setLoadingTasks] = useState(true)
+  const [loadingDashboard, setLoadingDashboard] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   const [title, setTitle] = useState('')
@@ -106,6 +121,36 @@ export default function HomePage() {
     [currentUserId]
   )
 
+  const loadDashboard = useCallback(
+    async (userId?: string) => {
+      setLoadingDashboard(true)
+
+      try {
+        const headers: Record<string, string> = userId
+          ? { 'x-user-id': userId }
+          : currentUserId
+          ? { 'x-user-id': currentUserId }
+          : {}
+
+        const res = await fetch('/api/dashboard', { headers })
+        const json: DashboardResponse & { error?: string } = await res.json()
+
+        if (!res.ok) {
+          console.error('Failed to load dashboard:', json.error)
+          return
+        }
+
+        setDashboardStats(json.stats)
+        setRecentTasks(json.recent_tasks || [])
+      } catch (error) {
+        console.error('Failed to load dashboard:', error)
+      } finally {
+        setLoadingDashboard(false)
+      }
+    },
+    [currentUserId]
+  )
+
   const loadContext = useCallback(
     async (userId: string) => {
       try {
@@ -136,7 +181,7 @@ export default function HomePage() {
         setLine(contextJson.line)
         setAuthStatus('ready')
 
-        await loadTasks(userId)
+        await Promise.all([loadTasks(userId), loadDashboard(userId)])
       } catch (error) {
         setAuthError(
           error instanceof Error ? error.message : 'Failed to load context'
@@ -144,7 +189,7 @@ export default function HomePage() {
         setAuthStatus('failed')
       }
     },
-    [loadTasks]
+    [loadDashboard, loadTasks]
   )
 
   useEffect(() => {
@@ -188,6 +233,10 @@ export default function HomePage() {
     setAuthError(reason || 'Unknown Telegram auth error')
     setAuthStatus('failed')
   }, [])
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadTasks(currentUserId), loadDashboard(currentUserId)])
+  }, [currentUserId, loadDashboard, loadTasks])
 
   const handleCreateTask = async () => {
     if (!currentUserId || !currentUser) {
@@ -238,7 +287,7 @@ export default function HomePage() {
       setRewardCash('')
       setRewardProjectPoints('')
 
-      await loadTasks(currentUserId)
+      await refreshAll()
     } finally {
       setSubmitting(false)
     }
@@ -260,7 +309,7 @@ export default function HomePage() {
       return
     }
 
-    await loadTasks(currentUserId)
+    await refreshAll()
   }
 
   const handleCompleteTask = async (taskId: string) => {
@@ -279,7 +328,7 @@ export default function HomePage() {
       return
     }
 
-    await loadTasks(currentUserId)
+    await refreshAll()
   }
 
   const userCard = useMemo(() => {
@@ -310,11 +359,12 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-6xl space-y-8">
         <header className="space-y-2">
-  <h1 className="text-4xl font-bold tracking-tight">Clouds MVP</h1>
-  <p className="text-base text-white/65">
-    Create flows, assign tasks, complete processes.
-  </p>
-</header>
+          <h1 className="text-4xl font-bold tracking-tight">Clouds MVP</h1>
+          <p className="text-base text-white/65">
+            Create flows, assign tasks, complete processes.
+          </p>
+        </header>
+
         {(authMode === 'checking' || authStatus === 'connecting') && (
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
             <p className="text-white/70">Connecting...</p>
@@ -332,7 +382,7 @@ export default function HomePage() {
 
         {authStatus === 'ready' && currentUser && (
           <>
-            <section className="grid gap-4 xl:grid-cols-3">
+            <section className="grid gap-4 md:grid-cols-3">
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
                 <h2 className="mb-4 text-xl font-semibold">Current user</h2>
                 {userCard}
@@ -361,6 +411,89 @@ export default function HomePage() {
                     <p className="mt-2 text-sm text-white/50">Active working lane</p>
                   </div>
                 </div>
+              )}
+            </section>
+
+            <section className="space-y-4 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-2xl font-semibold">Dashboard</h2>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/60">
+                  Live overview
+                </span>
+              </div>
+
+              {loadingDashboard ? (
+                <p className="text-white/60">Loading dashboard...</p>
+              ) : (
+                <>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <p className="text-sm text-white/45">Created</p>
+                      <p className="mt-2 text-3xl font-semibold">
+                        {dashboardStats?.tasks_created ?? 0}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <p className="text-sm text-white/45">Assigned</p>
+                      <p className="mt-2 text-3xl font-semibold">
+                        {dashboardStats?.tasks_assigned ?? 0}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <p className="text-sm text-white/45">Completed</p>
+                      <p className="mt-2 text-3xl font-semibold">
+                        {dashboardStats?.tasks_completed ?? 0}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold">Recent activity</h3>
+
+                    {recentTasks.length === 0 ? (
+                      <p className="text-white/60">No recent tasks yet.</p>
+                    ) : (
+                      <div className="grid gap-3">
+                        {recentTasks.map((task) => {
+                          const isCompleted = Boolean(task.completed_at)
+                          const isInProgress =
+                            Boolean(task.assignee_id) && !task.completed_at
+
+                          const statusLabel = isCompleted
+                            ? 'Done'
+                            : isInProgress
+                            ? 'In progress'
+                            : 'Open'
+
+                          return (
+                            <div
+                              key={task.id}
+                              className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <p className="font-medium">{task.title}</p>
+                                  <p className="mt-1 text-sm text-white/55">
+                                    Created by {task.creator_name}
+                                    {task.assignee_name
+                                      ? ` · Assigned to ${task.assignee_name}`
+                                      : ''}
+                                  </p>
+                                </div>
+
+                                <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-white/80">
+                                  {statusLabel}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </section>
 
