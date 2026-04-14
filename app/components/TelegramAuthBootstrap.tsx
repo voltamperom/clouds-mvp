@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 type Props = {
   onAuthed: (userId: string) => void
@@ -11,7 +11,12 @@ export default function TelegramAuthBootstrap({
   onAuthed,
   onFailed,
 }: Props) {
+  const startedRef = useRef(false)
+
   useEffect(() => {
+    if (startedRef.current) return
+    startedRef.current = true
+
     let cancelled = false
 
     const waitForTelegram = async () => {
@@ -72,7 +77,7 @@ export default function TelegramAuthBootstrap({
     return () => {
       cancelled = true
     }
-  }, [onAuthed, onFailed])
+  }, [])
 
   return null
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import TelegramAuthBootstrap from './components/TelegramAuthBootstrap'
 
 type Task = {
@@ -77,69 +77,75 @@ export default function HomePage() {
     return () => clearTimeout(timer)
   }, [])
 
-  const loadTasks = async (userId?: string) => {
-    setLoadingTasks(true)
+  const loadTasks = useCallback(
+    async (userId?: string) => {
+      setLoadingTasks(true)
 
-    try {
-      const headers: Record<string, string> = userId
-        ? { 'x-user-id': userId }
-        : currentUserId
-        ? { 'x-user-id': currentUserId }
-        : {}
+      try {
+        const headers: Record<string, string> = userId
+          ? { 'x-user-id': userId }
+          : currentUserId
+          ? { 'x-user-id': currentUserId }
+          : {}
 
-      const res = await fetch('/api/tasks', { headers })
-      const json = await res.json()
+        const res = await fetch('/api/tasks', { headers })
+        const json = await res.json()
 
-      if (!res.ok) {
-        console.error('Failed to load tasks:', json.error)
-        return
+        if (!res.ok) {
+          console.error('Failed to load tasks:', json.error)
+          return
+        }
+
+        setTasks(json.tasks || [])
+      } catch (error) {
+        console.error('Failed to load tasks:', error)
+      } finally {
+        setLoadingTasks(false)
       }
+    },
+    [currentUserId]
+  )
 
-      setTasks(json.tasks || [])
-    } catch (error) {
-      console.error('Failed to load tasks:', error)
-    } finally {
-      setLoadingTasks(false)
-    }
-  }
+  const loadContext = useCallback(
+    async (userId: string) => {
+      try {
+        const headers: Record<string, string> = { 'x-user-id': userId }
 
-  const loadContext = async (userId: string) => {
-    try {
-      const headers: Record<string, string> = { 'x-user-id': userId }
+        const meRes = await fetch('/api/me', { headers })
+        const meJson = await meRes.json()
 
-      const meRes = await fetch('/api/me', { headers })
-      const meJson = await meRes.json()
+        if (!meRes.ok || !meJson.user) {
+          setAuthError(meJson.error || 'Failed to load current user')
+          setAuthStatus('failed')
+          return
+        }
 
-      if (!meRes.ok || !meJson.user) {
-        setAuthError(meJson.error || 'Failed to load current user')
+        setCurrentUserId(meJson.user.id)
+        setCurrentUser(meJson.user)
+
+        const contextRes = await fetch('/api/context', { headers })
+        const contextJson = await contextRes.json()
+
+        if (!contextRes.ok) {
+          setAuthError(contextJson.error || 'Failed to load context')
+          setAuthStatus('failed')
+          return
+        }
+
+        setProject(contextJson.project)
+        setLine(contextJson.line)
+        setAuthStatus('ready')
+
+        await loadTasks(userId)
+      } catch (error) {
+        setAuthError(
+          error instanceof Error ? error.message : 'Failed to load context'
+        )
         setAuthStatus('failed')
-        return
       }
-
-      setCurrentUserId(meJson.user.id)
-      setCurrentUser(meJson.user)
-
-      const contextRes = await fetch('/api/context', { headers })
-      const contextJson = await contextRes.json()
-
-      if (!contextRes.ok) {
-        setAuthError(contextJson.error || 'Failed to load context')
-        setAuthStatus('failed')
-        return
-      }
-
-      setProject(contextJson.project)
-      setLine(contextJson.line)
-      setAuthStatus('ready')
-
-      await loadTasks(userId)
-    } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : 'Failed to load context'
-      )
-      setAuthStatus('failed')
-    }
-  }
+    },
+    [loadTasks]
+  )
 
   useEffect(() => {
     if (authMode !== 'browser') return
@@ -168,7 +174,20 @@ export default function HomePage() {
     }
 
     bootstrapLocalUser()
-  }, [authMode])
+  }, [authMode, loadContext])
+
+  const handleTelegramAuthed = useCallback(
+    (userId: string) => {
+      setAuthError('')
+      loadContext(userId)
+    },
+    [loadContext]
+  )
+
+  const handleTelegramFailed = useCallback((reason?: string) => {
+    setAuthError(reason || 'Unknown Telegram auth error')
+    setAuthStatus('failed')
+  }, [])
 
   const handleCreateTask = async () => {
     if (!currentUserId || !currentUser) {
@@ -282,16 +301,10 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-black px-4 py-6 text-white md:px-6">
-      {authMode === 'telegram' && (
+      {authMode === 'telegram' && authStatus !== 'ready' && (
         <TelegramAuthBootstrap
-          onAuthed={(userId) => {
-            setAuthError('')
-            loadContext(userId)
-          }}
-          onFailed={(reason) => {
-            setAuthError(reason || 'Unknown Telegram auth error')
-            setAuthStatus('failed')
-          }}
+          onAuthed={handleTelegramAuthed}
+          onFailed={handleTelegramFailed}
         />
       )}
 
@@ -299,8 +312,9 @@ export default function HomePage() {
         <header className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">Clouds MVP 88888</h1>
           <p className="text-base text-white/65">
-            Create flows, assign tasks, complete processes/// TEST BUILD V999
+            Create flows, assign tasks, complete processes///
           </p>
+          <p className="text-base text-white/65">TEST BUILD V999</p>
         </header>
 
         {(authMode === 'checking' || authStatus === 'connecting') && (
