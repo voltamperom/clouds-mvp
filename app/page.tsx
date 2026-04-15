@@ -109,7 +109,15 @@ export default function HomePage() {
           ? { 'x-user-id': currentUserId }
           : {}
 
-        const res = await fetch('/api/tasks', { headers })
+        const targetLineId = line?.id
+
+if (!targetLineId) {
+  setTasks([])
+  setLoadingTasks(false)
+  return
+}
+
+const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
         const json = await res.json()
 
         if (!res.ok) {

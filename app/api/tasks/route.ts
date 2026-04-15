@@ -2,17 +2,55 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getRequestUser } from '@/lib/request-user'
 
-export async function GET() {
+async function userHasProjectAccess(userId: string, projectId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('project_members')
+    .select('project_id')
+    .eq('user_id', userId)
+    .eq('project_id', projectId)
+    .maybeSingle()
+
+  if (error) return false
+  return Boolean(data)
+}
+
+export async function GET(req: NextRequest) {
   const user = await getRequestUser()
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
+  const { searchParams } = new URL(req.url)
+  const lineId = searchParams.get('line_id')
+
+  if (!lineId) {
+    return NextResponse.json({ error: 'line_id is required' }, { status: 400 })
+  }
+
+  const { data: line, error: lineError } = await supabaseAdmin
+    .from('process_lines')
+    .select('id, project_id')
+    .eq('id', lineId)
+    .single()
+
+  if (lineError || !line) {
+    return NextResponse.json({ error: 'Process line not found' }, { status: 404 })
+  }
+
+  const hasAccess = await userHasProjectAccess(user.id, line.project_id)
+
+  if (!hasAccess) {
+    return NextResponse.json(
+      { error: 'You do not have access to this project' },
+      { status: 403 }
+    )
+  }
+
   const { data: tasks, error } = await supabaseAdmin
     .from('tasks')
     .select('*')
-    .or(`creator_id.eq.${user.id},assignee_id.eq.${user.id}`)
+    .eq('line_id', lineId)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -42,10 +80,7 @@ export async function GET() {
     }
 
     usersMap = new Map(
-      (users ?? []).map((user) => [
-        user.id,
-        { id: user.id, display_name: user.display_name },
-      ])
+      (users ?? []).map((u) => [u.id, { id: u.id, display_name: u.display_name }])
     )
   }
 
@@ -83,8 +118,25 @@ export async function POST(req: NextRequest) {
     result_destination_link,
   } = body
 
+  if (!project_id || typeof project_id !== 'string') {
+    return NextResponse.json({ error: 'project_id is required' }, { status: 400 })
+  }
+
+  if (!line_id || typeof line_id !== 'string') {
+    return NextResponse.json({ error: 'line_id is required' }, { status: 400 })
+  }
+
   if (!title || typeof title !== 'string' || !title.trim()) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+  }
+
+  const hasAccess = await userHasProjectAccess(user.id, project_id)
+
+  if (!hasAccess) {
+    return NextResponse.json(
+      { error: 'You do not have access to this project' },
+      { status: 403 }
+    )
   }
 
   const { data: task, error } = await supabaseAdmin
@@ -102,6 +154,8 @@ export async function POST(req: NextRequest) {
       competency_subtype: competency_subtype || null,
       expected_result: expected_result || null,
       result_destination_link: result_destination_link || null,
+      status: 'open',
+      completed_at: null,
     })
     .select('*')
     .single()

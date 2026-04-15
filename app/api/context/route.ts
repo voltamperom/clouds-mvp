@@ -9,44 +9,37 @@ export async function GET() {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
-  let { data: project, error: projectError } = await supabaseAdmin
-    .from('projects')
-    .select('id, title, owner_id')
-    .eq('owner_id', user.id)
-    .order('created_at', { ascending: false })
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('project_members')
+    .select('project_id, role')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
-  if (projectError) {
-    return NextResponse.json({ error: projectError.message }, { status: 500 })
+  if (membershipError) {
+    return NextResponse.json({ error: membershipError.message }, { status: 500 })
   }
 
-  if (!project) {
-    const { data: createdProject, error: createProjectError } =
-      await supabaseAdmin
-        .from('projects')
-        .insert({
-          owner_id: user.id,
-          title: 'My first project',
-        })
-        .select('id, title, owner_id')
-        .single()
+  if (!membership) {
+    return NextResponse.json({ error: 'No accessible project found' }, { status: 404 })
+  }
 
-    if (createProjectError || !createdProject) {
-      return NextResponse.json(
-        { error: createProjectError?.message || 'Failed to create project' },
-        { status: 500 }
-      )
-    }
+  const { data: project, error: projectError } = await supabaseAdmin
+    .from('projects')
+    .select('id, title, owner_id')
+    .eq('id', membership.project_id)
+    .single()
 
-    project = createdProject
+  if (projectError || !project) {
+    return NextResponse.json({ error: 'Project not found' }, { status: 404 })
   }
 
   let { data: line, error: lineError } = await supabaseAdmin
     .from('process_lines')
     .select('id, title, project_id, owner_id, status')
     .eq('project_id', project.id)
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
@@ -59,9 +52,9 @@ export async function GET() {
       .from('process_lines')
       .insert({
         project_id: project.id,
-        owner_id: user.id,
+        owner_id: project.owner_id,
         title: 'Main Line',
-        status: 'draft',
+        status: 'active',
       })
       .select('id, title, project_id, owner_id, status')
       .single()
