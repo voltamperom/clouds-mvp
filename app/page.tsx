@@ -58,7 +58,9 @@ type AuthMode = 'checking' | 'telegram' | 'browser'
 
 export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null)
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(
+    null
+  )
   const [recentTasks, setRecentTasks] = useState<Task[]>([])
 
   const [currentUserId, setCurrentUserId] = useState('')
@@ -67,7 +69,9 @@ export default function HomePage() {
   const [line, setLine] = useState<ProcessLine | null>(null)
 
   const [authMode, setAuthMode] = useState<AuthMode>('checking')
-  const [authStatus, setAuthStatus] = useState<'connecting' | 'ready' | 'failed'>('connecting')
+  const [authStatus, setAuthStatus] = useState<
+    'connecting' | 'ready' | 'failed'
+  >('connecting')
   const [authError, setAuthError] = useState('')
   const [loadingTasks, setLoadingTasks] = useState(true)
   const [loadingDashboard, setLoadingDashboard] = useState(true)
@@ -106,18 +110,19 @@ export default function HomePage() {
         const headers: Record<string, string> = userId
           ? { 'x-user-id': userId }
           : currentUserId
-          ? { 'x-user-id': currentUserId }
-          : {}
+            ? { 'x-user-id': currentUserId }
+            : {}
 
         const targetLineId = line?.id
 
-if (!targetLineId) {
-  setTasks([])
-  setLoadingTasks(false)
-  return
-}
+        if (!targetLineId) {
+          setTasks([])
+          return
+        }
 
-const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
+        const res = await fetch(`/api/tasks?line_id=${targetLineId}`, {
+          headers,
+        })
         const json = await res.json()
 
         if (!res.ok) {
@@ -132,7 +137,7 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
         setLoadingTasks(false)
       }
     },
-    [currentUserId]
+    [currentUserId, line?.id]
   )
 
   const loadDashboard = useCallback(
@@ -143,8 +148,8 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
         const headers: Record<string, string> = userId
           ? { 'x-user-id': userId }
           : currentUserId
-          ? { 'x-user-id': currentUserId }
-          : {}
+            ? { 'x-user-id': currentUserId }
+            : {}
 
         const res = await fetch('/api/dashboard', { headers })
         const json: DashboardResponse & { error?: string } = await res.json()
@@ -195,7 +200,7 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
         setLine(contextJson.line)
         setAuthStatus('ready')
 
-        await Promise.all([loadTasks(userId), loadDashboard(userId)])
+        await loadDashboard(userId)
       } catch (error) {
         setAuthError(
           error instanceof Error ? error.message : 'Failed to load context'
@@ -203,7 +208,7 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
         setAuthStatus('failed')
       }
     },
-    [loadDashboard, loadTasks]
+    [loadDashboard]
   )
 
   useEffect(() => {
@@ -234,6 +239,14 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
 
     bootstrapLocalUser()
   }, [authMode, loadContext])
+
+  useEffect(() => {
+    if (authStatus !== 'ready') return
+    if (!line?.id) return
+    if (!currentUserId) return
+
+    loadTasks(currentUserId)
+  }, [authStatus, line?.id, currentUserId, loadTasks])
 
   const handleTelegramAuthed = useCallback(
     (userId: string) => {
@@ -399,7 +412,9 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
         <p className="text-lg font-semibold">{currentUser.display_name}</p>
         <p className="mt-1 text-sm text-white/50">
-          {authMode === 'telegram' ? 'Connected via Telegram' : 'Connected locally'}
+          {authMode === 'telegram'
+            ? 'Connected via Telegram'
+            : 'Connected locally'}
         </p>
       </div>
     )
@@ -451,7 +466,9 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
 
               {project && (
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                  <h2 className="mb-4 text-xl font-semibold">Current project</h2>
+                  <h2 className="mb-4 text-xl font-semibold">
+                    Current project
+                  </h2>
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <p className="text-lg font-semibold">{project.title}</p>
                     <p className="mt-1 text-sm text-white/50">Project space</p>
@@ -461,7 +478,9 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
 
               {line && (
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                  <h2 className="mb-4 text-xl font-semibold">Current process line</h2>
+                  <h2 className="mb-4 text-xl font-semibold">
+                    Current process line
+                  </h2>
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-lg font-semibold">{line.title}</p>
@@ -469,7 +488,9 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
                         {line.status || '—'}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-white/50">Active working lane</p>
+                    <p className="mt-2 text-sm text-white/50">
+                      Active working lane
+                    </p>
                   </div>
                 </div>
               )}
@@ -522,12 +543,12 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
                             task.status === 'done'
                               ? 'Done'
                               : task.status === 'in_review'
-                              ? 'In review'
-                              : task.status === 'needs_revision'
-                              ? 'Needs revision'
-                              : task.status === 'in_progress'
-                              ? 'In progress'
-                              : 'Open'
+                                ? 'In review'
+                                : task.status === 'needs_revision'
+                                  ? 'Needs revision'
+                                  : task.status === 'in_progress'
+                                    ? 'In progress'
+                                    : 'Open'
 
                           return (
                             <div
@@ -619,7 +640,9 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-4 flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-semibold">Tasks in current line</h2>
+                <h2 className="text-2xl font-semibold">
+                  Tasks in current line
+                </h2>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/60">
                   {tasksInCurrentLine.length} tasks
                 </span>
@@ -636,12 +659,12 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
                       task.status === 'done'
                         ? 'Done'
                         : task.status === 'in_review'
-                        ? 'In review'
-                        : task.status === 'needs_revision'
-                        ? 'Needs revision'
-                        : task.status === 'in_progress'
-                        ? 'In progress'
-                        : 'Open'
+                          ? 'In review'
+                          : task.status === 'needs_revision'
+                            ? 'Needs revision'
+                            : task.status === 'in_progress'
+                              ? 'In progress'
+                              : 'Open'
 
                     const isOpen = task.status === 'open'
                     const isInProgress = task.status === 'in_progress'
@@ -675,7 +698,9 @@ const res = await fetch(`/api/tasks?line_id=${targetLineId}`, { headers })
 
                               {task.expected_result && (
                                 <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
-                                  <p className="text-white/45">Expected result</p>
+                                  <p className="text-white/45">
+                                    Expected result
+                                  </p>
                                   <p className="mt-1">{task.expected_result}</p>
                                 </div>
                               )}
