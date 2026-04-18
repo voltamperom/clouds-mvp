@@ -1,6 +1,4 @@
 import type { Metadata } from 'next'
-import Script from 'next/script'
-import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Clouds MVP',
@@ -13,12 +11,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <head>
-        <Script
-          src="https://telegram.org/js/telegram-web-app.js"
-          strategy="afterInteractive"
-        />
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
       </head>
       <body>{children}</body>
     </html>
