@@ -18,7 +18,7 @@ export async function POST(_req: Request, { params }: Params) {
 
   const { data: task, error: taskError } = await supabaseAdmin
     .from('tasks')
-    .select('id, assignee_id, status')
+    .select('id, creator_id, status')
     .eq('id', taskId)
     .single()
 
@@ -26,15 +26,25 @@ export async function POST(_req: Request, { params }: Params) {
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
   }
 
-  if (task.assignee_id) {
-    return NextResponse.json({ error: 'Task is already taken' }, { status: 400 })
+  if (task.creator_id !== user.id) {
+    return NextResponse.json(
+      { error: 'Only creator can send task back for revision' },
+      { status: 403 }
+    )
+  }
+
+  if (task.status !== 'in_review') {
+    return NextResponse.json(
+      { error: 'Task is not in review' },
+      { status: 400 }
+    )
   }
 
   const { data, error } = await supabaseAdmin
     .from('tasks')
     .update({
-      assignee_id: user.id,
-      status: 'in_progress',
+      status: 'needs_revision',
+      completed_at: null,
     })
     .eq('id', taskId)
     .select('*')

@@ -1,83 +1,105 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 
-type Props = {
-  onAuthed: (userId: string) => void
-  onFailed: (reason?: string) => void
+type AuthState = 'idle' | 'loading' | 'authenticated' | 'error'
+
+type MeResponse = {
+  user?: {
+    id: string
+    display_name: string
+    telegram_username: string | null
+    has_completed_onboarding: boolean
+  } | null
+  error?: string
 }
 
-export default function TelegramAuthBootstrap({
-  onAuthed,
-  onFailed,
-}: Props) {
-  const startedRef = useRef(false)
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        initData?: string
+        ready?: () => void
+        expand?: () => void
+      }
+    }
+  }
+}
+
+export default function TelegramAuthBootstrap() {
+  const [state, setState] = useState<AuthState>('idle')
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (startedRef.current) return
-    startedRef.current = true
+    async function bootstrap() {
+      try {
+        setState('loading')
+        setError(null)
 
-    let cancelled = false
+        const telegram = window.Telegram?.WebApp
+        telegram?.ready?.()
+        telegram?.expand?.()
 
-    const waitForTelegram = async () => {
-      const startedAt = Date.now()
-      const timeoutMs = 8000
+        const initData = telegram?.initData
 
-      while (!cancelled && Date.now() - startedAt < timeoutMs) {
-        const tg = (window as any).Telegram?.WebApp
-        const initData = tg?.initData
-
-        if (tg && initData) {
-          try {
-            const res = await fetch('/api/telegram-auth', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ initData }),
-            })
-
-            const json = await res.json()
-
-            if (res.ok && json.user?.id) {
-              onAuthed(json.user.id)
-              return
-            }
-
-            onFailed(json.error || `telegram-auth failed (${res.status})`)
-            return
-          } catch (error) {
-            onFailed(
-              error instanceof Error
-                ? error.message
-                : 'Telegram bootstrap request failed'
-            )
-            return
-          }
+        if (!initData) {
+          throw new Error(
+            'Could not connect to Telegram. Please reopen the app from CloudsFlowBot.'
+          )
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 300))
+        const authRes = await fetch('/api/telegram-auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ initData }),
+        })
+
+        const authData = await authRes.json()
+
+        if (!authRes.ok) {
+          throw new Error(authData?.error || 'Telegram auth failed')
+        }
+
+        const meRes = await fetch('/api/me', {
+          method: 'GET',
+          credentials: 'include',
+        })
+
+        const meData: MeResponse = await meRes.json()
+
+        if (!meRes.ok || !meData.user) {
+          throw new Error(meData?.error || 'Failed to fetch current user')
+        }
+
+        setState('authenticated')
+
+        if (!meData.user.has_completed_onboarding) {
+          window.location.href = '/onboarding'
+          return
+        }
+
+        window.location.href = '/dashboard'
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Something went wrong'
+        setError(message)
+        setState('error')
       }
-
-      const tg = (window as any).Telegram?.WebApp
-
-      if (!tg) {
-        onFailed('Telegram WebApp is missing')
-        return
-      }
-
-      if (!tg.initData) {
-        onFailed('Telegram initData is empty')
-        return
-      }
-
-      onFailed('Telegram bootstrap timeout')
     }
 
-    waitForTelegram()
-
-    return () => {
-      cancelled = true
-    }
+    bootstrap()
   }, [])
 
-  return null
+  if (state === 'loading' || state === 'idle') {
+    return <div>Connecting to Telegram...</div>
+  }
+
+  if (state === 'error') {
+    return <div>{error || 'Authentication error'}</div>
+  }
+
+  return <div>Opening Clouds...</div>
 }
