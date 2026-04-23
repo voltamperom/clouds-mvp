@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import AppShell from '../../components/AppShell'
 
@@ -32,7 +32,15 @@ const cardStyle: React.CSSProperties = {
 
 export default function ProjectDetailPage() {
   const params = useParams()
-  const projectId = typeof params?.projectId === 'string' ? params.projectId : ''
+
+  const projectId = useMemo(() => {
+    const raw = params?.projectId
+
+    if (typeof raw === 'string') return raw
+    if (Array.isArray(raw) && raw[0]) return raw[0]
+
+    return ''
+  }, [params])
 
   const [project, setProject] = useState<Project | null>(null)
   const [lines, setLines] = useState<Line[]>([])
@@ -42,8 +50,8 @@ export default function ProjectDetailPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function loadProject() {
-    const res = await fetch(`/api/projects/${projectId}`, {
+  async function loadProject(currentProjectId: string) {
+    const res = await fetch(`/api/projects/${encodeURIComponent(currentProjectId)}`, {
       method: 'GET',
       credentials: 'include',
     })
@@ -57,11 +65,14 @@ export default function ProjectDetailPage() {
     setProject(data.project)
   }
 
-  async function loadLines() {
-    const res = await fetch(`/api/projects/${projectId}/lines`, {
-      method: 'GET',
-      credentials: 'include',
-    })
+  async function loadLines(currentProjectId: string) {
+    const res = await fetch(
+      `/api/projects/${encodeURIComponent(currentProjectId)}/lines`,
+      {
+        method: 'GET',
+        credentials: 'include',
+      }
+    )
 
     const data = await res.json()
 
@@ -72,12 +83,15 @@ export default function ProjectDetailPage() {
     setLines(data.lines ?? [])
   }
 
-  async function loadAll() {
+  async function loadAll(currentProjectId: string) {
     try {
       setIsLoading(true)
       setError(null)
 
-      await Promise.all([loadProject(), loadLines()])
+      await Promise.all([
+        loadProject(currentProjectId),
+        loadLines(currentProjectId),
+      ])
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to load project'
@@ -89,29 +103,32 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!projectId) return
-    loadAll()
+    loadAll(projectId)
   }, [projectId])
 
   async function handleCreateLine(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!lineTitle.trim()) return
+    if (!lineTitle.trim() || !projectId) return
 
     try {
       setIsCreating(true)
       setError(null)
 
-      const res = await fetch(`/api/projects/${projectId}/lines`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          title: lineTitle,
-          description: lineDescription,
-        }),
-      })
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/lines`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: lineTitle,
+            description: lineDescription,
+          }),
+        }
+      )
 
       const data = await res.json()
 
@@ -121,7 +138,7 @@ export default function ProjectDetailPage() {
 
       setLineTitle('')
       setLineDescription('')
-      await loadLines()
+      await loadLines(projectId)
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to create line'
@@ -178,7 +195,7 @@ export default function ProjectDetailPage() {
                   letterSpacing: '-0.03em',
                 }}
               >
-                {project?.title}
+                {project?.title || 'Untitled project'}
               </div>
 
               <div
@@ -238,7 +255,7 @@ export default function ProjectDetailPage() {
 
                 <button
                   type="submit"
-                  disabled={isCreating || !lineTitle.trim()}
+                  disabled={isCreating || !lineTitle.trim() || !projectId}
                   style={{
                     border: 'none',
                     borderRadius: 16,
@@ -248,8 +265,11 @@ export default function ProjectDetailPage() {
                     color: '#081224',
                     fontWeight: 700,
                     cursor:
-                      isCreating || !lineTitle.trim() ? 'default' : 'pointer',
-                    opacity: isCreating || !lineTitle.trim() ? 0.7 : 1,
+                      isCreating || !lineTitle.trim() || !projectId
+                        ? 'default'
+                        : 'pointer',
+                    opacity:
+                      isCreating || !lineTitle.trim() || !projectId ? 0.7 : 1,
                   }}
                 >
                   {isCreating ? 'Creating...' : 'Create process line'}
