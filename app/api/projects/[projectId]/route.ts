@@ -14,7 +14,7 @@ async function getCurrentUserId(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  context: { params: Promise<{ projectId: string }> }
 ) {
   try {
     const userId = await getCurrentUserId(request)
@@ -23,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const projectId = params.projectId
+    const { projectId } = await context.params
 
     if (!projectId) {
       return NextResponse.json(
