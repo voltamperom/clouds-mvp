@@ -1,8 +1,8 @@
 import AppShell from '../components/AppShell'
 
-export default function DashboardPage() {
+export default function ProfilePage() {
   return (
-    <AppShell title="Dashboard">
+    <AppShell title="Profile">
       <div
         style={{
           display: 'grid',
@@ -17,14 +17,11 @@ export default function DashboardPage() {
             padding: 18,
           }}
         >
-          <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 6 }}>
-            Season I – The Fork
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+            Telegram profile
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-            Clouds MVP is alive
-          </div>
-          <div style={{ fontSize: 15, lineHeight: 1.5, opacity: 0.9 }}>
-            This is your command deck for projects, lines, tasks, XP and contribution.
+          <div style={{ opacity: 0.85 }}>
+            Auto-profile from Telegram will live here.
           </div>
         </div>
 
@@ -36,9 +33,9 @@ export default function DashboardPage() {
           }}
         >
           {[
-            ['Active tasks', '0'],
-            ['In review', '0'],
-            ['Projects', '0'],
+            ['Completed tasks', '0'],
+            ['Completed lines', '0'],
+            ['Reliability', '0'],
             ['XP', '0'],
           ].map(([label, value]) => (
             <div
