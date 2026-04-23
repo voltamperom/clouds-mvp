@@ -31,8 +31,8 @@ const cardStyle: React.CSSProperties = {
 }
 
 export default function ProjectDetailPage() {
-  const params = useParams<{ projectId: string }>()
-  const projectId = params.projectId
+  const params = useParams()
+  const projectId = typeof params?.projectId === 'string' ? params.projectId : ''
 
   const [project, setProject] = useState<Project | null>(null)
   const [lines, setLines] = useState<Line[]>([])
