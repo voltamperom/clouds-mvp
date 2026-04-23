@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import AppShell from '../components/AppShell'
 
@@ -183,7 +184,16 @@ export default function ProjectsPage() {
           </div>
         ) : (
           projects.map((project) => (
-            <div key={project.id} style={cardStyle}>
+            <Link
+              key={project.id}
+              href={`/projects/${project.id}`}
+              style={{
+                ...cardStyle,
+                textDecoration: 'none',
+                color: '#eef4ff',
+                display: 'block',
+              }}
+            >
               <div
                 style={{
                   fontSize: 20,
@@ -217,7 +227,7 @@ export default function ProjectsPage() {
                 <span>{project.members_count} members</span>
                 <span>{project.lines_count} lines</span>
               </div>
-            </div>
+            </Link>
           ))
         )}
       </div>
