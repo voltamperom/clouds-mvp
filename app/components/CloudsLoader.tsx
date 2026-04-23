@@ -12,17 +12,20 @@ export default function CloudsLoader() {
           <div className="cloudsLoader__glow" />
 
           <div className="cloudsLoader__symbolReveal">
-            <Image
-              src="/clouds-logo.png"
-              alt="Clouds"
-              fill
-              priority
-              sizes="280px"
-              style={{
-                objectFit: 'cover',
-                objectPosition: 'center 24%',
-              }}
-            />
+            <div className="cloudsLoader__symbolWrap">
+              <Image
+                src="/clouds-symbol.png"
+                alt="Clouds"
+                width={170}
+                height={96}
+                priority
+                style={{
+                  width: '170px',
+                  height: 'auto',
+                  display: 'block',
+                }}
+              />
+            </div>
           </div>
 
           <div className="cloudsLoader__sweep" />
@@ -62,29 +65,30 @@ export default function CloudsLoader() {
           pointer-events: none;
         }
 
-       .cloudsLoader__content {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 320px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
+        .cloudsLoader__content {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          max-width: 320px;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
 
-.cloudsLoader__symbolStage {
-  position: relative;
-  width: 220px;
-  height: 118px;
-  margin-bottom: 14px;
-}
+        .cloudsLoader__symbolStage {
+          position: relative;
+          width: 190px;
+          height: 110px;
+          margin-bottom: 18px;
+        }
+
         .cloudsLoader__glow {
           position: absolute;
-          inset: 14px 26px;
+          inset: 10px;
           background: radial-gradient(circle, rgba(255, 96, 72, 0.34) 0%, rgba(255, 96, 72, 0) 72%);
-          filter: blur(26px);
+          filter: blur(24px);
           opacity: 0;
           animation: cloudsGlow 1.8s ease-in-out infinite;
         }
@@ -94,14 +98,22 @@ export default function CloudsLoader() {
           inset: 0;
           overflow: hidden;
           clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
-          animation: cloudsReveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          animation: cloudsReveal 1.15s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .cloudsLoader__symbolWrap {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .cloudsLoader__sweep {
           position: absolute;
           top: -8%;
-          left: -24%;
-          width: 38%;
+          left: -28%;
+          width: 34%;
           height: 116%;
           background: linear-gradient(
             135deg,
@@ -113,7 +125,7 @@ export default function CloudsLoader() {
           );
           transform: skewX(-16deg);
           opacity: 0;
-          animation: cloudsSweep 1.5s ease-out 0.45s forwards;
+          animation: cloudsSweep 1.4s ease-out 0.4s forwards;
           pointer-events: none;
         }
 
@@ -123,7 +135,7 @@ export default function CloudsLoader() {
         }
 
         .cloudsLoader__title {
-          font-size: 26px;
+          font-size: 28px;
           font-weight: 700;
           letter-spacing: -0.03em;
           margin-bottom: 6px;
@@ -187,18 +199,18 @@ export default function CloudsLoader() {
           }
           100% {
             opacity: 0;
-            transform: translateX(360px) skewX(-16deg);
+            transform: translateX(260px) skewX(-16deg);
           }
         }
 
         @keyframes cloudsGlow {
           0%,
           100% {
-            opacity: 0.2;
+            opacity: 0.18;
             transform: scale(0.96);
           }
           50% {
-            opacity: 0.46;
+            opacity: 0.42;
             transform: scale(1.04);
           }
         }
