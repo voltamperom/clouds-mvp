@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import AppShell from '../components/AppShell'
 
 type Project = {
@@ -21,8 +20,6 @@ const cardStyle: React.CSSProperties = {
 }
 
 export default function ProjectsPage() {
-  const router = useRouter()
-
   const [projects, setProjects] = useState<Project[]>([])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -100,7 +97,7 @@ export default function ProjectsPage() {
   }
 
   function openProject(projectId: string) {
-    router.push(`/projects/${projectId}`)
+    window.location.href = `/projects/${projectId}`
   }
 
   return (
@@ -202,6 +199,7 @@ export default function ProjectsPage() {
                 color: '#eef4ff',
                 cursor: 'pointer',
                 WebkitTapHighlightColor: 'transparent',
+                border: '1px solid rgba(255,255,255,0.08)',
               }}
             >
               <div
