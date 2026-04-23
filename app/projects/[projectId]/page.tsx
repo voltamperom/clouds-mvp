@@ -35,10 +35,8 @@ export default function ProjectDetailPage() {
 
   const projectId = useMemo(() => {
     const raw = params?.projectId
-
     if (typeof raw === 'string') return raw
     if (Array.isArray(raw) && raw[0]) return raw[0]
-
     return ''
   }, [params])
 
@@ -87,11 +85,7 @@ export default function ProjectDetailPage() {
     try {
       setIsLoading(true)
       setError(null)
-
-      await Promise.all([
-        loadProject(currentProjectId),
-        loadLines(currentProjectId),
-      ])
+      await Promise.all([loadProject(currentProjectId), loadLines(currentProjectId)])
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to load project'
