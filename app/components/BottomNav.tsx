@@ -17,16 +17,20 @@ export default function BottomNav() {
     <nav
       style={{
         position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        padding: '12px 16px calc(12px + env(safe-area-inset-bottom))',
-        background: '#101826',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
+        left: 12,
+        right: 12,
+        bottom: 12,
+        padding: '10px',
+        background: 'rgba(8, 15, 30, 0.78)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 22,
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
         gap: 8,
         zIndex: 50,
+        boxShadow: '0 12px 40px rgba(0,0,0,0.28)',
       }}
     >
       {items.map((item) => {
@@ -39,12 +43,16 @@ export default function BottomNav() {
             style={{
               textAlign: 'center',
               textDecoration: 'none',
-              padding: '10px 8px',
-              borderRadius: 14,
+              padding: '12px 8px',
+              borderRadius: 16,
               fontSize: 13,
-              color: isActive ? '#0f1724' : '#e8eefc',
-              background: isActive ? '#f3f7ff' : 'transparent',
+              lineHeight: 1.2,
+              color: isActive ? '#081224' : 'rgba(238,244,255,0.82)',
+              background: isActive
+                ? 'linear-gradient(180deg, #f8fbff 0%, #dbeafe 100%)'
+                : 'transparent',
               fontWeight: isActive ? 700 : 500,
+              transition: 'all 0.2s ease',
             }}
           >
             {item.label}
