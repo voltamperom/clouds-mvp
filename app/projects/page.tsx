@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import AppShell from '../components/AppShell'
 
 type Project = {
@@ -21,6 +21,8 @@ const cardStyle: React.CSSProperties = {
 }
 
 export default function ProjectsPage() {
+  const router = useRouter()
+
   const [projects, setProjects] = useState<Project[]>([])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -95,6 +97,10 @@ export default function ProjectsPage() {
     } finally {
       setIsCreating(false)
     }
+  }
+
+  function openProject(projectId: string) {
+    router.push(`/projects/${projectId}`)
   }
 
   return (
@@ -184,14 +190,18 @@ export default function ProjectsPage() {
           </div>
         ) : (
           projects.map((project) => (
-            <Link
+            <button
               key={project.id}
-              href={`/projects/${project.id}`}
+              type="button"
+              onClick={() => openProject(project.id)}
               style={{
                 ...cardStyle,
-                textDecoration: 'none',
-                color: '#eef4ff',
                 display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                color: '#eef4ff',
+                cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
               <div
@@ -227,7 +237,7 @@ export default function ProjectsPage() {
                 <span>{project.members_count} members</span>
                 <span>{project.lines_count} lines</span>
               </div>
-            </Link>
+            </button>
           ))
         )}
       </div>
