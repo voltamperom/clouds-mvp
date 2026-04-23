@@ -62,25 +62,24 @@ export default function CloudsLoader() {
           pointer-events: none;
         }
 
-        .cloudsLoader__content {
-          position: relative;
-          z-index: 1;
-          width: 100%;
-          max-width: 360px;
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-        }
+       .cloudsLoader__content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 320px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 
-        .cloudsLoader__symbolStage {
-          position: relative;
-          width: 280px;
-          height: 150px;
-          margin-bottom: 18px;
-        }
-
+.cloudsLoader__symbolStage {
+  position: relative;
+  width: 220px;
+  height: 118px;
+  margin-bottom: 14px;
+}
         .cloudsLoader__glow {
           position: absolute;
           inset: 14px 26px;
