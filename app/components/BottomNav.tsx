@@ -31,6 +31,7 @@ export default function BottomNav() {
         gap: 8,
         zIndex: 50,
         boxShadow: '0 12px 40px rgba(0,0,0,0.28)',
+        alignItems: 'stretch',
       }}
     >
       {items.map((item) => {
@@ -41,12 +42,16 @@ export default function BottomNav() {
             key={item.href}
             href={item.href}
             style={{
+              minHeight: 64,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               textAlign: 'center',
               textDecoration: 'none',
-              padding: '12px 8px',
+              padding: '0 10px',
               borderRadius: 16,
               fontSize: 13,
-              lineHeight: 1.2,
+              lineHeight: 1.15,
               color: isActive ? '#081224' : 'rgba(238,244,255,0.82)',
               background: isActive
                 ? 'linear-gradient(180deg, #f8fbff 0%, #dbeafe 100%)'

@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import CloudsLoader from './CloudsLoader'
 
-type AuthState = 'idle' | 'loading' | 'authenticated' | 'error'
+type AuthState = 'idle' | 'loading' | 'error'
 
 type MeResponse = {
   user?: {
@@ -31,6 +32,8 @@ export default function TelegramAuthBootstrap() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+
     async function bootstrap() {
       try {
         setState('loading')
@@ -74,7 +77,7 @@ export default function TelegramAuthBootstrap() {
           throw new Error(meData?.error || 'Failed to fetch current user')
         }
 
-        setState('authenticated')
+        if (cancelled) return
 
         if (!meData.user.has_completed_onboarding) {
           window.location.href = '/onboarding'
@@ -83,23 +86,71 @@ export default function TelegramAuthBootstrap() {
 
         window.location.href = '/dashboard'
       } catch (err) {
+        if (cancelled) return
+
         const message =
           err instanceof Error ? err.message : 'Something went wrong'
+
         setError(message)
         setState('error')
       }
     }
 
     bootstrap()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  if (state === 'loading' || state === 'idle') {
-    return <div>Connecting to Telegram...</div>
+  if (state === 'idle' || state === 'loading') {
+    return <CloudsLoader />
   }
 
-  if (state === 'error') {
-    return <div>{error || 'Authentication error'}</div>
-  }
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        background:
+          'radial-gradient(circle at top, rgba(37,99,235,0.12) 0%, rgba(15,23,42,0) 28%), linear-gradient(180deg, #081224 0%, #0b1730 100%)',
+        color: '#eef4ff',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 420,
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 24,
+          padding: 20,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            marginBottom: 10,
+            letterSpacing: '-0.03em',
+          }}
+        >
+          Connection error
+        </div>
 
-  return <div>Opening Clouds...</div>
+        <div
+          style={{
+            fontSize: 15,
+            lineHeight: 1.6,
+            color: 'rgba(238,244,255,0.78)',
+          }}
+        >
+          {error || 'Authentication error'}
+        </div>
+      </div>
+    </main>
+  )
 }
