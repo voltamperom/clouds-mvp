@@ -47,7 +47,7 @@ export async function GET(
   } catch (error) {
     console.error('GET /api/projects/[projectId] route error:', error)
     return NextResponse.json(
-      { error: 'Failed to load project' },
+      { error: error instanceof Error ? error.message : 'Failed to load project' },
       { status: 500 }
     )
   }

@@ -50,7 +50,6 @@ export async function GET(
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('GET /api/projects/[projectId]/lines error:', error)
       return NextResponse.json(
         { error: error.message || 'Failed to load lines' },
         { status: 500 }
@@ -61,7 +60,7 @@ export async function GET(
   } catch (error) {
     console.error('GET /api/projects/[projectId]/lines route error:', error)
     return NextResponse.json(
-      { error: 'Failed to load lines' },
+      { error: error instanceof Error ? error.message : 'Failed to load lines' },
       { status: 500 }
     )
   }
@@ -118,7 +117,6 @@ export async function POST(
       .single()
 
     if (error || !data) {
-      console.error('POST /api/projects/[projectId]/lines error:', error)
       return NextResponse.json(
         { error: error?.message || 'Failed to create line' },
         { status: 500 }
@@ -129,7 +127,7 @@ export async function POST(
   } catch (error) {
     console.error('POST /api/projects/[projectId]/lines route error:', error)
     return NextResponse.json(
-      { error: 'Failed to create line' },
+      { error: error instanceof Error ? error.message : 'Failed to create line' },
       { status: 500 }
     )
   }
