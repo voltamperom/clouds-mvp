@@ -74,14 +74,17 @@ async function showTerminal(chatId: number) {
   await sendMessage(
     chatId,
     'Если перестать играть,\nкажется, что праздник закончился.\n\nRDLK: 50\n\n🔓 Создать Загадку\n\n🔓 Приглашение\n\n🔒 Projects\nСоздай Загадку, которую пройдёт хотя бы один человек.',
-    {
-      ...terminalKeyboard(),
-      inline_keyboard: [
-        [{ text: '🔓 Создать Загадку', callback_data: 'create_riddle' }],
-        [{ text: '🔓 Приглашение', callback_data: 'festival_invite' }],
-        [{ text: '🔒 Projects', callback_data: 'projects_locked' }],
-      ],
-    }
+    terminalKeyboard()
+  )
+
+  await sendMessage(
+    chatId,
+    'Выбери дверь:',
+    inlineKeyboard([
+      [{ text: '🔓 Создать Загадку', callback_data: 'create_riddle' }],
+      [{ text: '🔓 Приглашение', callback_data: 'festival_invite' }],
+      [{ text: '🔒 Projects', callback_data: 'projects_locked' }],
+    ])
   )
 }
 
