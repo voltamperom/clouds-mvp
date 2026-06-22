@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 const BOT_TOKEN = process.env.RIDDLEQUEST_BOT_TOKEN
 const ARTICLE_URL = 'https://dzen.ru/a/YsdHf4J6JFNcU627'
+const BOT_USERNAME = 'riddlequestbot'
 
 type UserState =
   | 'WAIT_PASSWORD'
@@ -11,8 +13,13 @@ type UserState =
   | 'WAIT_DREAM_VOICE'
   | 'COMPLETED'
   | 'TERMINAL'
+  | 'CREATE_RIDDLE_TITLE'
+  | 'CREATE_RIDDLE_TEXT'
+  | 'CREATE_RIDDLE_HINT'
+  | 'PLAY_USER_RIDDLE'
 
 const userStates = new Map<number, UserState>()
+const draftRiddles = new Map<number, { title?: string; text?: string }>()
 
 async function telegram(method: string, body: unknown) {
   if (!BOT_TOKEN) throw new Error('RIDDLEQUEST_BOT_TOKEN is not set')
@@ -23,10 +30,7 @@ async function telegram(method: string, body: unknown) {
     body: JSON.stringify(body),
   })
 
-  if (!res.ok) {
-    throw new Error(await res.text())
-  }
-
+  if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
 
@@ -44,17 +48,15 @@ async function answerCallback(callbackQueryId: string) {
   })
 }
 
+function inlineKeyboard(buttons: { text: string; callback_data?: string; url?: string }[][]) {
+  return { inline_keyboard: buttons }
+}
+
 function terminalKeyboard() {
   return {
     keyboard: [[{ text: '🏠 Терминал' }]],
     resize_keyboard: true,
     is_persistent: true,
-  }
-}
-
-function inlineKeyboard(buttons: { text: string; callback_data?: string; url?: string }[][]) {
-  return {
-    inline_keyboard: buttons,
   }
 }
 
@@ -71,7 +73,7 @@ async function showTerminal(chatId: number) {
 
   await sendMessage(
     chatId,
-    'Если перестать играть,\nкажется, что праздник закончился.\n\nRDLCK: 50\n\n🔓 Создать Загадку\n\n🔓 Приглашение\n\n🔒 Projects\nСоздай Загадку, которую пройдёт хотя бы один человек.',
+    'Если перестать играть,\nкажется, что праздник закончился.\n\nRDLK: 50\n\n🔓 Создать Загадку\n\n🔓 Приглашение\n\n🔒 Projects\nСоздай Загадку, которую пройдёт хотя бы один человек.',
     {
       ...terminalKeyboard(),
       inline_keyboard: [
@@ -80,6 +82,79 @@ async function showTerminal(chatId: number) {
         [{ text: '🔒 Projects', callback_data: 'projects_locked' }],
       ],
     }
+  )
+}
+
+async function startCreateRiddle(chatId: number) {
+  userStates.set(chatId, 'CREATE_RIDDLE_TITLE')
+  draftRiddles.set(chatId, {})
+  await sendMessage(chatId, 'Назови свою Загадку.')
+}
+
+async function createRiddle(chatId: number, hint: string) {
+  const draft = draftRiddles.get(chatId)
+
+  if (!draft?.title || !draft?.text) {
+    await sendMessage(chatId, 'Черновик Загадки потерялся. Начни ещё раз.')
+    userStates.set(chatId, 'TERMINAL')
+    return
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('riddles')
+    .insert({
+      author_chat_id: chatId,
+      title: draft.title,
+      riddle_text: draft.text,
+      hint,
+    })
+    .select('id')
+    .single()
+
+  if (error) throw error
+
+  const link = `https://t.me/${BOT_USERNAME}?start=riddle_${data.id}`
+
+  draftRiddles.delete(chatId)
+  userStates.set(chatId, 'TERMINAL')
+
+  await sendMessage(
+    chatId,
+    `Загадка создана.\n\nСтоимость: -10 RDLK\nОстаток: 40 RDLK\n\nОтправь эту ссылку человеку:\n\n${link}`
+  )
+}
+
+async function startUserRiddle(chatId: number, riddleId: string, playerName?: string) {
+  const { data: riddle, error } = await supabaseAdmin
+    .from('riddles')
+    .select('*')
+    .eq('id', riddleId)
+    .single()
+
+  if (error || !riddle) {
+    await sendMessage(chatId, 'Эта Загадка не найдена.')
+    return
+  }
+
+  await supabaseAdmin.from('riddle_progress').insert({
+    riddle_id: riddle.id,
+    player_chat_id: chatId,
+  })
+
+  await sendMessage(
+    riddle.author_chat_id,
+    `${playerName || 'Кто-то'} начал проходить твою Загадку:\n\n«${riddle.title}»`
+  )
+
+  userStates.set(chatId, 'PLAY_USER_RIDDLE')
+
+  await sendMessage(
+    chatId,
+    `Для тебя оставлена Загадка.\n\n«${riddle.title}»\n\n${riddle.riddle_text}`,
+    inlineKeyboard([
+      [{ text: 'Подсказка', callback_data: `user_hint_${riddle.id}` }],
+      [{ text: 'Завершить Загадку', callback_data: `user_complete_${riddle.id}` }],
+    ])
   )
 }
 
@@ -131,7 +206,7 @@ export async function POST(request: NextRequest) {
         userStates.set(chatId, 'COMPLETED')
         await sendMessage(
           chatId,
-          'Поздравляем.\n\nТы прошёл Загадку.\n\n+50 RDLCK',
+          'Поздравляем.\n\nТы прошёл Загадку.\n\n+50 RDLK',
           inlineKeyboard([[{ text: 'Подсказка', callback_data: 'final_hint' }]])
         )
       }
@@ -149,7 +224,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (data === 'create_riddle') {
-        await sendMessage(chatId, 'Скоро здесь можно будет оставить Загадку другому человеку.')
+        await startCreateRiddle(chatId)
       }
 
       if (data === 'festival_invite') {
@@ -160,12 +235,55 @@ export async function POST(request: NextRequest) {
         await sendMessage(chatId, 'Projects закрыты.\n\nЧтобы открыть эту дверь, создай Загадку, которую пройдёт хотя бы один человек.')
       }
 
+      if (data?.startsWith('user_hint_')) {
+        const riddleId = data.replace('user_hint_', '')
+
+        const { data: riddle, error } = await supabaseAdmin
+          .from('riddles')
+          .select('*')
+          .eq('id', riddleId)
+          .single()
+
+        if (!error && riddle) {
+          await sendMessage(chatId, riddle.hint || 'Подсказка пока не оставлена.')
+          await sendMessage(riddle.author_chat_id, 'Игрок открыл подсказку в твоей Загадке.')
+        }
+      }
+
+      if (data?.startsWith('user_complete_')) {
+        const riddleId = data.replace('user_complete_', '')
+
+        const { data: riddle, error } = await supabaseAdmin
+          .from('riddles')
+          .select('*')
+          .eq('id', riddleId)
+          .single()
+
+        if (!error && riddle) {
+          await supabaseAdmin
+            .from('riddle_progress')
+            .update({ completed_at: new Date().toISOString() })
+            .eq('riddle_id', riddleId)
+            .eq('player_chat_id', chatId)
+
+          await sendMessage(chatId, 'Ты завершил Загадку.\n\n+10 RDLK')
+          await sendMessage(riddle.author_chat_id, 'Твою Загадку прошли до конца.\n\n+20 RDLK')
+        }
+      }
+
       return NextResponse.json({ ok: true })
     }
 
     if (message) {
       const chatId = message.chat.id
       const state = userStates.get(chatId)
+      const playerName = message.from?.first_name || message.from?.username
+
+      if (message.text?.startsWith('/start riddle_')) {
+        const riddleId = message.text.replace('/start riddle_', '').trim()
+        await startUserRiddle(chatId, riddleId, playerName)
+        return NextResponse.json({ ok: true })
+      }
 
       if (message.text === '/start') {
         await showStart(chatId)
@@ -174,6 +292,26 @@ export async function POST(request: NextRequest) {
 
       if (message.text === '🏠 Терминал') {
         await showTerminal(chatId)
+        return NextResponse.json({ ok: true })
+      }
+
+      if (state === 'CREATE_RIDDLE_TITLE') {
+        draftRiddles.set(chatId, { title: message.text })
+        userStates.set(chatId, 'CREATE_RIDDLE_TEXT')
+        await sendMessage(chatId, 'Теперь напиши текст Загадки.')
+        return NextResponse.json({ ok: true })
+      }
+
+      if (state === 'CREATE_RIDDLE_TEXT') {
+        const draft = draftRiddles.get(chatId) || {}
+        draftRiddles.set(chatId, { ...draft, text: message.text })
+        userStates.set(chatId, 'CREATE_RIDDLE_HINT')
+        await sendMessage(chatId, 'Оставь подсказку для игрока.')
+        return NextResponse.json({ ok: true })
+      }
+
+      if (state === 'CREATE_RIDDLE_HINT') {
+        await createRiddle(chatId, message.text || '')
         return NextResponse.json({ ok: true })
       }
 
@@ -218,11 +356,7 @@ export async function POST(request: NextRequest) {
 
       if (state === 'WAIT_ABUNDANCE_ANSWER') {
         if (message.text) {
-          await sendMessage(
-            chatId,
-            'Ответ принят.',
-            inlineKeyboard([[{ text: 'Продолжить', callback_data: 'dream_step' }]])
-          )
+          await sendMessage(chatId, 'Ответ принят.', inlineKeyboard([[{ text: 'Продолжить', callback_data: 'dream_step' }]]))
         } else {
           await sendMessage(chatId, 'Здесь нужен текстовый ответ.')
         }
